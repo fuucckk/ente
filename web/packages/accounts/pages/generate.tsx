@@ -12,22 +12,22 @@ import {
     configureSRP,
     generateKeyAndSRPAttributes,
 } from "ente-accounts/services/srp";
-import { putAttributes } from "ente-accounts/services/user";
+import type { KeyAttributes, User } from "ente-accounts/services/user";
+import { putUserKeyAttributes } from "ente-accounts/services/user";
+import { generateAndSaveIntermediateKeyAttributes } from "ente-accounts/utils/helpers";
 import { LinkButton } from "ente-base/components/LinkButton";
 import { LoadingIndicator } from "ente-base/components/loaders";
 import { useBaseContext } from "ente-base/context";
 import log from "ente-base/log";
 import {
-    generateAndSaveIntermediateKeyAttributes,
-    saveKeyInSessionStore,
-} from "ente-shared/crypto/helpers";
+    haveCredentialsInSession,
+    saveMasterKeyInSessionAndSafeStore,
+} from "ente-base/session";
 import { getData } from "ente-shared/storage/localStorage";
 import {
     justSignedUp,
     setJustSignedUp,
 } from "ente-shared/storage/localStorage/helpers";
-import { getKey } from "ente-shared/storage/sessionStorage";
-import type { KeyAttributes, User } from "ente-shared/user/types";
 import { t } from "i18next";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -35,7 +35,6 @@ import { useEffect, useState } from "react";
 const Page: React.FC = () => {
     const { logout, showMiniDialog } = useBaseContext();
 
-    const [token, setToken] = useState<string>();
     const [user, setUser] = useState<User>();
     const [openRecoveryKey, setOpenRecoveryKey] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -43,13 +42,12 @@ const Page: React.FC = () => {
     const router = useRouter();
 
     useEffect(() => {
-        const key: string = getKey("encryptionKey");
         const keyAttributes: KeyAttributes = getData("originalKeyAttributes");
         const user: User = getData("user");
         setUser(user);
         if (!user?.token) {
             void router.push("/");
-        } else if (key) {
+        } else if (haveCredentialsInSession()) {
             if (justSignedUp()) {
                 setOpenRecoveryKey(true);
                 setLoading(false);
@@ -59,7 +57,6 @@ const Page: React.FC = () => {
         } else if (keyAttributes?.encryptedKey) {
             void router.push("/credentials");
         } else {
-            setToken(user.token);
             setLoading(false);
         }
     }, [router]);
@@ -72,15 +69,14 @@ const Page: React.FC = () => {
             const { keyAttributes, masterKey, srpSetupAttributes } =
                 await generateKeyAndSRPAttributes(passphrase);
 
-            // TODO: Refactor the code to not require this ensure
-            await putAttributes(token!, keyAttributes);
+            await putUserKeyAttributes(keyAttributes);
             await configureSRP(srpSetupAttributes);
             await generateAndSaveIntermediateKeyAttributes(
                 passphrase,
                 keyAttributes,
                 masterKey,
             );
-            await saveKeyInSessionStore("encryptionKey", masterKey);
+            await saveMasterKeyInSessionAndSafeStore(masterKey);
             setJustSignedUp(true);
             setOpenRecoveryKey(true);
         } catch (e) {
