@@ -32,7 +32,7 @@ import {
     openLogDirectory,
     selectDirectory,
 } from "./services/dir";
-import { ffmpegExec } from "./services/ffmpeg";
+import { ffmpegDetermineVideoDuration, ffmpegExec } from "./services/ffmpeg";
 import {
     fsExists,
     fsFindFiles,
@@ -50,8 +50,8 @@ import { convertToJPEG, generateImageThumbnail } from "./services/image";
 import { logout } from "./services/logout";
 import {
     lastShownChangelogVersion,
-    masterKeyB64,
-    saveMasterKeyB64,
+    masterKeyFromSafeStorage,
+    saveMasterKeyInSafeStorage,
     setLastShownChangelogVersion,
 } from "./services/store";
 import {
@@ -108,10 +108,12 @@ export const attachIPCHandlers = () => {
 
     ipcMain.handle("selectDirectory", () => selectDirectory());
 
-    ipcMain.handle("masterKeyB64", () => masterKeyB64());
+    ipcMain.handle("masterKeyFromSafeStorage", () =>
+        masterKeyFromSafeStorage(),
+    );
 
-    ipcMain.handle("saveMasterKeyB64", (_, masterKeyB64: string) =>
-        saveMasterKeyB64(masterKeyB64),
+    ipcMain.handle("saveMasterKeyInSafeStorage", (_, masterKey: string) =>
+        saveMasterKeyInSafeStorage(masterKey),
     );
 
     ipcMain.handle("lastShownChangelogVersion", () =>
@@ -182,10 +184,10 @@ export const attachIPCHandlers = () => {
         "generateImageThumbnail",
         (
             _,
-            dataOrPathOrZipItem: Uint8Array | string | ZipItem,
+            pathOrZipItem: string | ZipItem,
             maxDimension: number,
             maxSize: number,
-        ) => generateImageThumbnail(dataOrPathOrZipItem, maxDimension, maxSize),
+        ) => generateImageThumbnail(pathOrZipItem, maxDimension, maxSize),
     );
 
     ipcMain.handle(
@@ -193,9 +195,15 @@ export const attachIPCHandlers = () => {
         (
             _,
             command: FFmpegCommand,
-            dataOrPathOrZipItem: Uint8Array | string | ZipItem,
+            pathOrZipItem: string | ZipItem,
             outputFileExtension: string,
-        ) => ffmpegExec(command, dataOrPathOrZipItem, outputFileExtension),
+        ) => ffmpegExec(command, pathOrZipItem, outputFileExtension),
+    );
+
+    ipcMain.handle(
+        "ffmpegDetermineVideoDuration",
+        (_, pathOrZipItem: string | ZipItem) =>
+            ffmpegDetermineVideoDuration(pathOrZipItem),
     );
 
     // - Upload
