@@ -8,12 +8,11 @@ import "package:logging/logging.dart";
 import "package:photos/core/event_bus.dart";
 import "package:photos/db/files_db.dart";
 import "package:photos/db/ml/db.dart";
-import "package:photos/events/machine_learning_control_event.dart";
+import "package:photos/events/compute_control_event.dart";
 import "package:photos/events/people_changed_event.dart";
 import "package:photos/models/ml/face/face.dart";
 import "package:photos/models/ml/ml_versions.dart";
 import "package:photos/service_locator.dart";
-import "package:photos/services/filedata/filedata_service.dart";
 import "package:photos/services/filedata/model/file_data.dart";
 import 'package:photos/services/machine_learning/face_ml/face_clustering/face_clustering_service.dart';
 import "package:photos/services/machine_learning/face_ml/face_clustering/face_db_info_for_clustering.dart";
@@ -21,6 +20,7 @@ import "package:photos/services/machine_learning/face_ml/person/person_service.d
 import "package:photos/services/machine_learning/ml_indexing_isolate.dart";
 import 'package:photos/services/machine_learning/ml_result.dart';
 import "package:photos/services/machine_learning/semantic_search/semantic_search_service.dart";
+import "package:photos/services/video_preview_service.dart";
 import "package:photos/utils/ml_util.dart";
 import "package:photos/utils/network_util.dart";
 import "package:photos/utils/ram_check_util.dart";
@@ -51,6 +51,9 @@ class MLService {
   bool _isRunningML = false;
   bool _shouldPauseIndexingAndClustering = false;
 
+  bool get isRunningML =>
+      _isRunningML || memoriesCacheService.isUpdatingMemories;
+
   static const _kForceClusteringFaceCount = 8000;
   late final mlDataDB = MLDataDB.instance;
 
@@ -70,8 +73,8 @@ class MLService {
     client = "${packageInfo.packageName}/${packageInfo.version}";
     _logger.info("client: $client");
 
-    // Listen on MachineLearningController
-    Bus.instance.on<MachineLearningControlEvent>().listen((event) {
+    // Listen on ComputeController
+    Bus.instance.on<ComputeControlEvent>().listen((event) {
       if (!flagService.hasGrantedMLConsent) {
         return;
       }
@@ -116,7 +119,7 @@ class MLService {
   }
 
   Future<void> sync() async {
-    await FileDataService.instance.syncFDStatus();
+    await fileDataService.syncFDStatus();
     await faceRecognitionService.syncPersonFeedback();
   }
 
@@ -126,6 +129,7 @@ class MLService {
         _mlControllerStatus = true;
       }
       if (!_canRunMLFunction(function: "AllML") && !force) return;
+      if (!force && !computeController.requestCompute(ml: true)) return;
       _isRunningML = true;
       await sync();
 
@@ -160,6 +164,8 @@ class MLService {
       rethrow;
     } finally {
       _isRunningML = false;
+      computeController.releaseCompute(ml: true);
+      VideoPreviewService.instance.queueFiles();
     }
   }
 
@@ -494,11 +500,10 @@ class MLService {
         );
       }
       // Storing results on remote
-      await FileDataService.instance.putFileData(
+      await fileDataService.putFileData(
         instruction.file,
         dataEntity,
       );
-      _logger.info("ML results for fileID ${result.fileId} stored on remote");
       // Storing results locally
       if (result.facesRan) await mlDataDB.bulkInsertFaces(faces);
       if (result.clipRan) {
@@ -506,7 +511,7 @@ class MLService {
           result.clip!,
         );
       }
-      _logger.info("ML results for fileID ${result.fileId} stored locally");
+      _logger.info("ML result for fileID ${result.fileId} stored remote+local");
       return actuallyRanML;
     } catch (e, s) {
       final String errorString = e.toString();

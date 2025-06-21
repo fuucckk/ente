@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import CloseIcon from "@mui/icons-material/Close";
@@ -44,12 +45,12 @@ import type { ModalVisibilityProps } from "ente-base/components/utils/modal";
 import { useBaseContext } from "ente-base/context";
 import { nameAndExtension } from "ente-base/file-name";
 import log from "ente-base/log";
-import { downloadAndRevokeObjectURL } from "ente-base/utils/web";
+import { saveAsFileAndRevokeObjectURL } from "ente-base/utils/web";
 import { downloadManager } from "ente-gallery/services/download";
 import type { Collection } from "ente-media/collection";
 import type { EnteFile } from "ente-media/file";
+import { fileFileName } from "ente-media/file-metadata";
 import { getLocalCollections } from "ente-new/photos/services/collections";
-import { CenteredFlex } from "ente-shared/components/Container";
 import { t } from "i18next";
 import React, {
     forwardRef,
@@ -463,7 +464,7 @@ export const ImageEditorOverlay: React.FC<ImageEditorOverlayProps> = ({
 
     const getEditedFile = async () => {
         const originalSizeCanvas = originalSizeCanvasRef.current!;
-        const originalFileName = file.metadata.title;
+        const originalFileName = fileFileName(file);
         return canvasToFile(originalSizeCanvas, originalFileName, mimeType);
     };
 
@@ -471,7 +472,7 @@ export const ImageEditorOverlay: React.FC<ImageEditorOverlayProps> = ({
         if (!canvasRef.current) return;
 
         const f = await getEditedFile();
-        downloadAndRevokeObjectURL(URL.createObjectURL(f), f.name);
+        saveAsFileAndRevokeObjectURL(URL.createObjectURL(f), f.name);
     };
 
     const saveCopyToEnte = async () => {
@@ -610,7 +611,7 @@ export const ImageEditorOverlay: React.FC<ImageEditorOverlayProps> = ({
                             )}
                         </Stack>
                         {currentTab == "crop" && (
-                            <CenteredFlex marginTop="1rem">
+                            <Stack sx={{ mt: 2, alignItems: "center" }}>
                                 <Button
                                     color="accent"
                                     startIcon={<CropIcon />}
@@ -618,7 +619,7 @@ export const ImageEditorOverlay: React.FC<ImageEditorOverlayProps> = ({
                                 >
                                     {t("apply_crop")}
                                 </Button>
-                            </CenteredFlex>
+                            </Stack>
                         )}
                     </Box>
                 </Stack>
@@ -768,7 +769,6 @@ const canvasToFile = async (
             break;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const blob = (await new Promise<Blob>((resolve) =>
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore

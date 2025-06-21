@@ -4,16 +4,17 @@ import {
     tryParseEpochMicrosecondsFromFileName,
 } from "ente-gallery/services/upload/date";
 import {
-    matchTakeoutMetadata,
+    matchJSONMetadata,
     metadataJSONMapKeyForJSON,
-} from "ente-gallery/services/upload/takeout";
+} from "ente-gallery/services/upload/metadata-json";
+import { fileFileName } from "ente-media/file-metadata";
 import { FileType } from "ente-media/file-type";
 import { getLocalCollections } from "ente-new/photos/services/collections";
 import {
     getLocalFiles,
     groupFilesByCollectionID,
 } from "ente-new/photos/services/files";
-import { getUserDetailsV2 } from "services/userService";
+import { getUserDetailsV2 } from "ente-new/photos/services/user-details";
 
 const DATE_TIME_PARSING_TEST_FILE_NAMES = [
     {
@@ -233,9 +234,8 @@ async function thumbnailGenerationFailedFilesCheck(expectedState) {
             }
         },
     );
-    const fileNamesWithStaticThumbnail = uniqueFilesWithStaticThumbnail.map(
-        (file) => file.metadata.title,
-    );
+    const fileNamesWithStaticThumbnail =
+        uniqueFilesWithStaticThumbnail.map(fileFileName);
 
     if (
         expectedState.thumbnail_generation_failure.count <
@@ -262,7 +262,7 @@ async function thumbnailGenerationFailedFilesCheck(expectedState) {
 async function livePhotoClubbingCheck(expectedState) {
     const files = await getLocalFiles();
     const livePhotos = files.filter(
-        (file) => file.metadata.fileType === FileType.livePhoto,
+        (file) => file.metadata.fileType == FileType.livePhoto,
     );
 
     const fileIDSet = new Set();
@@ -275,9 +275,7 @@ async function livePhotoClubbingCheck(expectedState) {
         }
     });
 
-    const livePhotoFileNames = uniqueLivePhotos.map(
-        (file) => file.metadata.title,
-    );
+    const livePhotoFileNames = uniqueLivePhotos.map(fileFileName);
 
     if (expectedState.live_photo.count !== livePhotoFileNames.length) {
         throw Error(
@@ -300,7 +298,7 @@ async function exifDataParsingCheck(expectedState) {
     const files = await getLocalFiles();
     Object.entries(expectedState.exif).map(([fileName, exifValues]) => {
         const matchingFile = files.find(
-            (file) => file.metadata.title === fileName,
+            (file) => fileFileName(file) == fileName,
         );
         if (!matchingFile) {
             throw Error(`exifDataParsingCheck failed , ${fileName} missing`);
@@ -340,7 +338,7 @@ async function fileDimensionExtractionCheck(expectedState) {
     Object.entries(expectedState.file_dimensions).map(
         ([fileName, dimensions]) => {
             const matchingFile = files.find(
-                (file) => file.metadata.title === fileName,
+                (file) => fileFileName(file) == fileName,
             );
             if (!matchingFile) {
                 throw Error(
@@ -366,7 +364,7 @@ async function googleMetadataReadingCheck(expectedState) {
     const files = await getLocalFiles();
     Object.entries(expectedState.google_import).map(([fileName, metadata]) => {
         const matchingFile = files.find(
-            (file) => file.metadata.title === fileName,
+            (file) => fileFileName(file) == fileName,
         );
         if (!matchingFile) {
             throw Error(`exifDataParsingCheck failed , ${fileName} missing`);
@@ -447,14 +445,14 @@ function parseDateTimeFromFileNameTest() {
 
 const fileNameToJSONMappingTests = () => {
     for (const { filename, jsonFilename } of fileNameToJSONMappingCases) {
-        const jsonKey = metadataJSONMapKeyForJSON(0, jsonFilename);
+        const jsonKey = metadataJSONMapKeyForJSON(undefined, 0, jsonFilename);
 
         // See the docs for the file name matcher as to why it doesn't return
         // the key but instead indexes into the map for us. To test it, we
         // construct a placeholder map with a dummy entry for the expected key.
 
         const map = new Map([[jsonKey, {}]]);
-        if (!matchTakeoutMetadata(filename, 0, map)) {
+        if (!matchJSONMetadata(undefined, 0, filename, map)) {
             throw Error(
                 `fileNameToJSONMappingTests failed ❌ for ${filename} and ${jsonFilename}`,
             );

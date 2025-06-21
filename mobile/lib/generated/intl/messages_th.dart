@@ -25,25 +25,27 @@ class MessageLookup extends MessageLookupByLibrary {
   static String m21(count) =>
       "${Intl.plural(count, one: 'ลบ ${count} รายการ', other: 'ลบ ${count} รายการ')}";
 
-  static String m22(currentlyDeleting, totalCount) =>
+  static String m23(currentlyDeleting, totalCount) =>
       "กำลังลบ ${currentlyDeleting} / ${totalCount}";
 
-  static String m24(supportEmail) =>
+  static String m25(supportEmail) =>
       "กรุณาส่งอีเมลไปที่ ${supportEmail} จากที่อยู่อีเมลที่คุณลงทะเบียนไว้";
 
-  static String m40(currentlyProcessing, totalCount) =>
+  static String m42(currentlyProcessing, totalCount) =>
       "กำลังประมวลผล ${currentlyProcessing} / ${totalCount}";
 
-  static String m42(count) => "${Intl.plural(count, other: '${count} รายการ')}";
+  static String m44(count) => "${Intl.plural(count, other: '${count} รายการ')}";
 
-  static String m55(passwordStrengthValue) =>
+  static String m57(passwordStrengthValue) =>
       "ความแข็งแรงของรหัสผ่าน: ${passwordStrengthValue}";
 
-  static String m91(
+  static String m94(
           usedAmount, usedStorageUnit, totalAmount, totalStorageUnit) =>
       "ใช้ไป ${usedAmount} ${usedStorageUnit} จาก ${totalAmount} ${totalStorageUnit}";
 
-  static String m110(email) => "เราได้ส่งจดหมายไปยัง <green>${email}</green>";
+  static String m114(email) => "เราได้ส่งจดหมายไปยัง <green>${email}</green>";
+
+  static String m115(name) => "Wish \$${name} a happy birthday! 🎉";
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
@@ -126,7 +128,7 @@ class MessageLookup extends MessageLookupByLibrary {
             MessageLookupByLibrary.simpleMessage(
                 "ลบอัลบั้มที่ว่างเปล่าหรือไม่?"),
         "deleteItemCount": m21,
-        "deleteProgress": m22,
+        "deleteProgress": m23,
         "deleteReason1": MessageLookupByLibrary.simpleMessage(
             "ขาดคุณสมบัติสำคัญที่ฉันต้องการ"),
         "deleteReason2": MessageLookupByLibrary.simpleMessage(
@@ -138,7 +140,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "deleteRequestSLAText": MessageLookupByLibrary.simpleMessage(
             "คำขอของคุณจะได้รับการดำเนินการภายใน 72 ชั่วโมง"),
         "doThisLater": MessageLookupByLibrary.simpleMessage("ทำในภายหลัง"),
-        "dropSupportEmail": m24,
+        "dropSupportEmail": m25,
         "edit": MessageLookupByLibrary.simpleMessage("แก้ไข"),
         "editLocationTagTitle":
             MessageLookupByLibrary.simpleMessage("แก้ไขตำแหน่ง"),
@@ -167,7 +169,7 @@ class MessageLookup extends MessageLookupByLibrary {
             MessageLookupByLibrary.simpleMessage("เพิ่มคำอธิบาย..."),
         "forgotPassword": MessageLookupByLibrary.simpleMessage("ลืมรหัสผ่าน"),
         "freeTrial": MessageLookupByLibrary.simpleMessage("ทดลองใช้ฟรี"),
-        "genericProgress": m40,
+        "genericProgress": m42,
         "goToSettings": MessageLookupByLibrary.simpleMessage("ไปที่การตั้งค่า"),
         "hide": MessageLookupByLibrary.simpleMessage("ซ่อน"),
         "hostedAtOsmFrance":
@@ -190,7 +192,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "invalidKey": MessageLookupByLibrary.simpleMessage("รหัสไม่ถูกต้อง"),
         "invalidRecoveryKey": MessageLookupByLibrary.simpleMessage(
             "คีย์การกู้คืนที่คุณป้อนไม่ถูกต้อง โปรดตรวจสอบให้แน่ใจว่ามี 24 คำ และตรวจสอบการสะกดของแต่ละคำ\n\nหากคุณป้อนรหัสกู้คืนที่เก่ากว่า ตรวจสอบให้แน่ใจว่ามีความยาว 64 ตัวอักษร และตรวจสอบแต่ละตัวอักษร"),
-        "itemCount": m42,
+        "itemCount": m44,
         "kindlyHelpUsWithThisInformation":
             MessageLookupByLibrary.simpleMessage("กรุณาช่วยเราด้วยข้อมูลนี้"),
         "lastUpdated": MessageLookupByLibrary.simpleMessage("อัปเดตล่าสุด"),
@@ -228,7 +230,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "password": MessageLookupByLibrary.simpleMessage("รหัสผ่าน"),
         "passwordChangedSuccessfully":
             MessageLookupByLibrary.simpleMessage("เปลี่ยนรหัสผ่านสำเร็จ"),
-        "passwordStrength": m55,
+        "passwordStrength": m57,
         "passwordWarning": MessageLookupByLibrary.simpleMessage(
             "เราไม่จัดเก็บรหัสผ่านนี้ ดังนั้นหากคุณลืม <underline>เราจะไม่สามารถถอดรหัสข้อมูลของคุณ</underline>"),
         "peopleUsingYourCode":
@@ -300,7 +302,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "storageBreakupFamily":
             MessageLookupByLibrary.simpleMessage("ครอบครัว"),
         "storageBreakupYou": MessageLookupByLibrary.simpleMessage("คุณ"),
-        "storageUsageInfo": m91,
+        "storageUsageInfo": m94,
         "strongStrength": MessageLookupByLibrary.simpleMessage("แข็งแรง"),
         "syncStopped": MessageLookupByLibrary.simpleMessage("หยุดการซิงค์แล้ว"),
         "syncing": MessageLookupByLibrary.simpleMessage("กำลังซิงค์..."),
@@ -341,10 +343,11 @@ class MessageLookup extends MessageLookupByLibrary {
             MessageLookupByLibrary.simpleMessage("ดูคีย์การกู้คืน"),
         "waitingForWifi":
             MessageLookupByLibrary.simpleMessage("กำลังรอ WiFi..."),
-        "weHaveSendEmailTo": m110,
+        "weHaveSendEmailTo": m114,
         "weakStrength": MessageLookupByLibrary.simpleMessage("อ่อน"),
         "welcomeBack":
             MessageLookupByLibrary.simpleMessage("ยินดีต้อนรับกลับมา!"),
+        "wishThemAHappyBirthday": m115,
         "you": MessageLookupByLibrary.simpleMessage("คุณ"),
         "youCanManageYourLinksInTheShareTab":
             MessageLookupByLibrary.simpleMessage(

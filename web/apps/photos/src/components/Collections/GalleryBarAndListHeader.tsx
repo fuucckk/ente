@@ -1,5 +1,4 @@
 import { AllAlbums } from "components/Collections/AllAlbums";
-import { SetCollectionNamerAttributes } from "components/Collections/CollectionNamer";
 import { CollectionShare } from "components/Collections/CollectionShare";
 import { TimeStampListItem } from "components/FileList";
 import { useModalVisibility } from "ente-base/components/utils/modal";
@@ -9,15 +8,15 @@ import {
     type GalleryBarImplProps,
 } from "ente-new/photos/components/gallery/BarImpl";
 import { PeopleHeader } from "ente-new/photos/components/gallery/PeopleHeader";
-import { ALL_SECTION } from "ente-new/photos/services/collection";
 import {
     areOnlySystemCollections,
     collectionsSortBy,
     isSystemCollection,
+    PseudoCollectionID,
     shouldShowOnCollectionBar,
     type CollectionsSortBy,
     type CollectionSummaries,
-} from "ente-new/photos/services/collection/ui";
+} from "ente-new/photos/services/collection-summary";
 import { getData, removeData } from "ente-shared/storage/localStorage";
 import { includes } from "ente-utils/type-guards";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -48,7 +47,6 @@ type CollectionsProps = Omit<
     activeCollection: Collection;
     setActiveCollectionID: (collectionID: number) => void;
     hiddenCollectionSummaries: CollectionSummaries;
-    setCollectionNamerAttributes: SetCollectionNamerAttributes;
     setPhotoListHeader: (value: TimeStampListItem) => void;
     filesDownloadProgressAttributesList: FilesDownloadProgressAttributes[];
     setFilesDownloadProgressAttributesCreator: SetFilesDownloadProgressAttributesCreator;
@@ -84,7 +82,6 @@ export const GalleryBarAndListHeader: React.FC<CollectionsProps> = ({
     people,
     activePerson,
     onSelectPerson,
-    setCollectionNamerAttributes,
     setPhotoListHeader,
     filesDownloadProgressAttributesList,
     setFilesDownloadProgressAttributesCreator,
@@ -111,7 +108,7 @@ export const GalleryBarAndListHeader: React.FC<CollectionsProps> = ({
         () =>
             shouldHide ||
             (areOnlySystemCollections(toShowCollectionSummaries) &&
-                activeCollectionID === ALL_SECTION),
+                activeCollectionID === PseudoCollectionID.all),
         [shouldHide, toShowCollectionSummaries, activeCollectionID],
     );
 
@@ -145,7 +142,6 @@ export const GalleryBarAndListHeader: React.FC<CollectionsProps> = ({
                         {...{
                             activeCollection,
                             setActiveCollectionID,
-                            setCollectionNamerAttributes,
                             setFilesDownloadProgressAttributesCreator,
                             isActiveCollectionDownloadInProgress,
                         }}

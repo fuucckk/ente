@@ -32,14 +32,17 @@ import "package:photos/l10n/l10n.dart";
 import "package:photos/models/collection/collection.dart";
 import 'package:photos/models/collection/collection_items.dart';
 import "package:photos/models/file/file.dart";
+import "package:photos/models/selected_albums.dart";
 import 'package:photos/models/selected_files.dart';
 import "package:photos/service_locator.dart";
 import 'package:photos/services/account/user_service.dart';
+import "package:photos/services/album_home_widget_service.dart";
 import 'package:photos/services/app_lifecycle_service.dart';
 import 'package:photos/services/collections_service.dart';
 import "package:photos/services/machine_learning/face_ml/person/person_service.dart";
 import "package:photos/services/memory_home_widget_service.dart";
 import "package:photos/services/notification_service.dart";
+import "package:photos/services/people_home_widget_service.dart";
 import "package:photos/services/sync/diff_fetcher.dart";
 import 'package:photos/services/sync/local_sync_service.dart';
 import "package:photos/services/sync/remote_sync_service.dart";
@@ -64,6 +67,7 @@ import "package:photos/ui/settings_page.dart";
 import "package:photos/ui/tabs/shared_collections_tab.dart";
 import "package:photos/ui/tabs/user_collections_tab.dart";
 import "package:photos/ui/viewer/actions/file_viewer.dart";
+import "package:photos/ui/viewer/file/detail_page.dart";
 import "package:photos/ui/viewer/gallery/collection_page.dart";
 import "package:photos/ui/viewer/gallery/shared_public_collection_page.dart";
 import "package:photos/ui/viewer/search/search_widget.dart";
@@ -83,7 +87,6 @@ class HomeWidget extends StatefulWidget {
 }
 
 class _HomeWidgetState extends State<HomeWidget> {
-  static const _userCollectionsTab = UserCollectionsTab();
   static const _sharedCollectionTab = SharedCollectionsTab();
   static const _searchTab = SearchTab();
   static final _settingsPage = SettingsPage(
@@ -91,6 +94,7 @@ class _HomeWidgetState extends State<HomeWidget> {
   );
 
   final _logger = Logger("HomeWidgetState");
+  final _selectedAlbums = SelectedAlbums();
   final _selectedFiles = SelectedFiles();
 
   final PageController _pageController = PageController();
@@ -125,6 +129,8 @@ class _HomeWidgetState extends State<HomeWidget> {
 
     if (LocalSyncService.instance.hasCompletedFirstImport()) {
       MemoryHomeWidgetService.instance.checkPendingMemorySync();
+      PeopleHomeWidgetService.instance.checkPendingPeopleSync();
+      AlbumHomeWidgetService.instance.checkPendingAlbumsSync();
     }
     _tabChangedEventSubscription =
         Bus.instance.on<TabChangedEvent>().listen((event) {
@@ -189,6 +195,8 @@ class _HomeWidgetState extends State<HomeWidget> {
             if (mounted) {
               setState(() {});
               MemoryHomeWidgetService.instance.checkPendingMemorySync();
+              AlbumHomeWidgetService.instance.checkPendingAlbumsSync();
+              PeopleHomeWidgetService.instance.checkPendingPeopleSync();
             }
           },
         );
@@ -269,8 +277,24 @@ class _HomeWidgetState extends State<HomeWidget> {
     }
   }
 
-  Future<void> _handlePublicAlbumLink(Uri uri) async {
+  final Map<Uri, (bool, int)> _linkedPublicAlbums = {};
+  Future<void> _handlePublicAlbumLink(Uri uri, String via) async {
     try {
+      _logger.info("Handling public album link: via $via");
+      final int currentTime = DateTime.now().millisecondsSinceEpoch;
+      final bool isInitialStream = via.toLowerCase().contains('initial');
+      if (_linkedPublicAlbums.containsKey(uri)) {
+        final (lastInitialLink, lastTime) = _linkedPublicAlbums[uri]!;
+        // for initial stream, wait for 30 seconds to ignore duplicate links event
+        if (currentTime - lastTime < (lastInitialLink ? 30000 : 2000)) {
+          _logger.info(
+            "ignore was it has handled $lastInitialLink at epoch $lastTime",
+          );
+          return;
+        }
+      }
+      _linkedPublicAlbums[uri] = (isInitialStream, currentTime);
+
       final Collection collection = await CollectionsService.instance
           .getCollectionFromPublicLink(context, uri);
       final existingCollection =
@@ -365,7 +389,7 @@ class _HomeWidgetState extends State<HomeWidget> {
         );
         await dialog.hide();
 
-        await routeToPage(
+        routeToPage(
           context,
           SharedPublicCollectionPage(
             files: sharedFiles,
@@ -374,7 +398,19 @@ class _HomeWidgetState extends State<HomeWidget> {
               null,
             ),
           ),
-        );
+        ).ignore();
+        if (sharedFiles.length == 1) {
+          await routeToPage(
+            context,
+            DetailPage(
+              DetailPageConfiguration(
+                sharedFiles,
+                0,
+                "sharedPublicCollection",
+              ),
+            ),
+          );
+        }
       }
     } catch (e, s) {
       _logger.severe("Failed to handle public album link", e, s);
@@ -446,7 +482,7 @@ class _HomeWidgetState extends State<HomeWidget> {
         }
         if (value[0].path.contains("albums.ente.io")) {
           final uri = Uri.parse(value[0].path);
-          _handlePublicAlbumLink(uri);
+          _handlePublicAlbumLink(uri, "sharedIntent.getMediaStream");
           return;
         }
 
@@ -513,7 +549,7 @@ class _HomeWidgetState extends State<HomeWidget> {
       if (mounted) {
         if (value.isNotEmpty && value[0].path.contains("albums.ente.io")) {
           final uri = Uri.parse(value[0].path);
-          _handlePublicAlbumLink(uri);
+          _handlePublicAlbumLink(uri, "sharedIntent.getInitialMedia");
           return;
         }
 
@@ -546,7 +582,7 @@ class _HomeWidgetState extends State<HomeWidget> {
       final initialUri = await appLinks.getInitialLink();
       if (initialUri != null) {
         if (initialUri.toString().contains("albums.ente.io")) {
-          await _handlePublicAlbumLink(initialUri);
+          await _handlePublicAlbumLink(initialUri, "appLinks.getInitialLink");
         } else {
           _logger.info(
             "uri doesn't contain 'albums.ente.io' in initial public album deep link",
@@ -565,7 +601,7 @@ class _HomeWidgetState extends State<HomeWidget> {
       (Uri? uri) {
         if (uri != null) {
           if (uri.toString().contains("albums.ente.io")) {
-            _handlePublicAlbumLink(uri);
+            _handlePublicAlbumLink(uri, "appLinks.uriLinkStream");
           } else {
             _logger.info(
               "uri doesn't contain 'albums.ente.io' in public album link subscription",
@@ -604,10 +640,16 @@ class _HomeWidgetState extends State<HomeWidget> {
             } else {
               Navigator.pop(context);
             }
-          } else {
-            Bus.instance
-                .fire(TabChangedEvent(0, TabChangedEventSource.backButton));
+            return;
           }
+          if (_selectedTabIndex == 1) {
+            if (_selectedAlbums.albums.isNotEmpty) {
+              _selectedAlbums.clearAll();
+              return;
+            }
+          }
+          Bus.instance
+              .fire(TabChangedEvent(0, TabChangedEventSource.backButton));
         },
         child: Scaffold(
           drawerScrimColor: getEnteColorScheme(context).strokeFainter,
@@ -709,7 +751,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                         ),
                         selectedFiles: _selectedFiles,
                       ),
-                _userCollectionsTab,
+                UserCollectionsTab(selectedAlbums: _selectedAlbums),
                 _sharedCollectionTab,
                 _searchTab,
               ],
@@ -756,6 +798,7 @@ class _HomeWidgetState extends State<HomeWidget> {
                         : const SizedBox.shrink(),
                     HomeBottomNavigationBar(
                       _selectedFiles,
+                      _selectedAlbums,
                       selectedTabIndex: _selectedTabIndex,
                     ),
                   ],
@@ -784,7 +827,7 @@ class _HomeWidgetState extends State<HomeWidget> {
       // Parse the link and warn the user, if it is not correct,
       // but keep in mind it could be `null`.
       if (initialLink != null) {
-        _logger.info("Initial link received: " + initialLink.toString());
+        _logger.info("Initial link received: host ${initialLink.host}");
         _getCredentials(context, initialLink);
         return true;
       } else {
@@ -799,7 +842,7 @@ class _HomeWidgetState extends State<HomeWidget> {
     // Attach a listener to the stream
     appLinks.uriLinkStream.listen(
       (link) {
-        _logger.info("Link received: " + link.toString());
+        _logger.info("Link received: host ${link.host}");
         _getCredentials(context, link);
       },
       onError: (err) {
@@ -853,22 +896,34 @@ class _HomeWidgetState extends State<HomeWidget> {
     final String? payload = notificationResponse.payload;
     if (payload != null) {
       debugPrint('notification payload: $payload');
-      final collectionID = Uri.parse(payload).queryParameters["collectionID"];
-      if (collectionID != null) {
-        final collection = CollectionsService.instance
-            .getCollectionByID(int.parse(collectionID))!;
-        final thumbnail =
-            await CollectionsService.instance.getCover(collection);
+      if (payload.toLowerCase().contains("onthisday")) {
+        _logger.info("On this day notification received");
         // ignore: unawaited_futures
-        routeToPage(
-          context,
-          CollectionPage(
-            CollectionWithThumbnail(
-              collection,
-              thumbnail,
+        memoriesCacheService.goToOnThisDayMemory(context);
+      } else if (payload.toLowerCase().contains("birthday")) {
+        _logger.info("Birthday notification received");
+        final personID = payload.substring("birthday_".length);
+        // ignore: unawaited_futures
+        memoriesCacheService.goToPersonMemory(context, personID);
+      } else {
+        _logger.info("Album notification received");
+        final collectionID = Uri.parse(payload).queryParameters["collectionID"];
+        if (collectionID != null) {
+          final collection = CollectionsService.instance
+              .getCollectionByID(int.parse(collectionID))!;
+          final thumbnail =
+              await CollectionsService.instance.getCover(collection);
+          // ignore: unawaited_futures
+          routeToPage(
+            context,
+            CollectionPage(
+              CollectionWithThumbnail(
+                collection,
+                thumbnail,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     }
   }

@@ -1,12 +1,14 @@
 import { sharedCryptoWorker } from "ente-base/crypto";
 import log from "ente-base/log";
 import { apiURL } from "ente-base/origins";
+import { type MagicMetadataCore } from "ente-gallery/services/magic-metadata";
 import type {
     Collection,
-    CollectionPublicMagicMetadata,
+    CollectionPublicMagicMetadataData,
 } from "ente-media/collection";
-import type { EncryptedEnteFile, EnteFile } from "ente-media/file";
-import { decryptFile, mergeMetadata } from "ente-media/file";
+import type { EnteFile, RemoteEnteFile } from "ente-media/file";
+import { decryptRemoteFile, mergeMetadata } from "ente-media/file";
+import { savedPublicCollections } from "ente-new/albums/services/public-albums-fdb";
 import { sortFiles } from "ente-new/photos/services/files";
 import { CustomError, parseSharingErrorCodes } from "ente-shared/error";
 import HTTPService from "ente-shared/network/HTTPService";
@@ -102,9 +104,7 @@ export const savePublicCollectionPassword = async (
 };
 
 export const getLocalPublicCollection = async (collectionKey: string) => {
-    const localCollections =
-        (await localForage.getItem<Collection[]>(PUBLIC_COLLECTIONS_TABLE)) ||
-        [];
+    const localCollections = await savedPublicCollections();
     const publicCollection =
         localCollections.find(
             (localSavedPublicCollection) =>
@@ -114,9 +114,7 @@ export const getLocalPublicCollection = async (collectionKey: string) => {
 };
 
 export const savePublicCollection = async (collection: Collection) => {
-    const publicCollections =
-        (await localForage.getItem<Collection[]>(PUBLIC_COLLECTIONS_TABLE)) ??
-        [];
+    const publicCollections = await savedPublicCollections();
     await localForage.setItem(
         PUBLIC_COLLECTIONS_TABLE,
         dedupeCollections([collection, ...publicCollections]),
@@ -219,7 +217,8 @@ export const syncPublicFiles = async (
             files = [];
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             for (const [_, file] of latestVersionFiles) {
-                if (file.isDeleted) {
+                // TODO(RE):
+                if ("isDeleted" in file && file.isDeleted) {
                     continue;
                 }
                 files.push(file);
@@ -274,9 +273,12 @@ const getPublicFiles = async (
             decryptedFiles = [
                 ...decryptedFiles,
                 ...(await Promise.all(
-                    resp.data.diff.map(async (file: EncryptedEnteFile) => {
+                    resp.data.diff.map(async (file: RemoteEnteFile) => {
                         if (!file.isDeleted) {
-                            return await decryptFile(file, collection.key);
+                            return await decryptRemoteFile(
+                                file,
+                                collection.key,
+                            );
                         } else {
                             return file;
                         }
@@ -291,7 +293,9 @@ const getPublicFiles = async (
                 sortFiles(
                     mergeMetadata(
                         [...(files || []), ...decryptedFiles].filter(
-                            (item) => !item.isDeleted,
+                            // TODO(RE):
+                            // (item) => !item.isDeleted,
+                            (file) => !("isDeleted" in file && file.isDeleted),
                         ),
                     ),
                     sortAsc,
@@ -325,22 +329,28 @@ export const getPublicCollection = async (
 
         const collectionName = (fetchedCollection.name =
             fetchedCollection.name ||
-            (await cryptoWorker.decryptToUTF8(
-                fetchedCollection.encryptedName,
-                fetchedCollection.nameDecryptionNonce,
-                collectionKey,
-            )));
+            new TextDecoder().decode(
+                await cryptoWorker.decryptBoxBytes(
+                    {
+                        encryptedData: fetchedCollection.encryptedName,
+                        nonce: fetchedCollection.nameDecryptionNonce,
+                    },
+                    collectionKey,
+                ),
+            ));
 
-        let collectionPublicMagicMetadata: CollectionPublicMagicMetadata;
+        let collectionPublicMagicMetadata: MagicMetadataCore<CollectionPublicMagicMetadataData>;
         if (fetchedCollection.pubMagicMetadata?.data) {
             collectionPublicMagicMetadata = {
                 ...fetchedCollection.pubMagicMetadata,
-                data: await cryptoWorker.decryptMetadataJSON({
-                    encryptedDataB64: fetchedCollection.pubMagicMetadata.data,
-                    decryptionHeaderB64:
-                        fetchedCollection.pubMagicMetadata.header,
-                    keyB64: collectionKey,
-                }),
+                data: await cryptoWorker.decryptMetadataJSON(
+                    {
+                        encryptedData: fetchedCollection.pubMagicMetadata.data,
+                        decryptionHeader:
+                            fetchedCollection.pubMagicMetadata.header,
+                    },
+                    collectionKey,
+                ),
             };
         }
 
@@ -363,9 +373,7 @@ export const removePublicCollectionWithFiles = async (
     collectionUID: string,
     collectionKey: string,
 ) => {
-    const publicCollections =
-        (await localForage.getItem<Collection[]>(PUBLIC_COLLECTIONS_TABLE)) ||
-        [];
+    const publicCollections = await savedPublicCollections();
     await localForage.setItem(
         PUBLIC_COLLECTIONS_TABLE,
         publicCollections.filter(

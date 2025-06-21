@@ -20,6 +20,8 @@ typedef String MessageIfAbsent(String messageStr, List<dynamic> args);
 class MessageLookup extends MessageLookupByLibrary {
   String get localeName => 'hu';
 
+  static String m115(name) => "Wish \$${name} a happy birthday! 🎉";
+
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
         "accountWelcomeBack":
@@ -38,6 +40,7 @@ class MessageLookup extends MessageLookupByLibrary {
         "feedback": MessageLookupByLibrary.simpleMessage("Visszajelzés"),
         "invalidEmailAddress":
             MessageLookupByLibrary.simpleMessage("Érvénytelen e-mail cím"),
-        "verify": MessageLookupByLibrary.simpleMessage("Hitelesítés")
+        "verify": MessageLookupByLibrary.simpleMessage("Hitelesítés"),
+        "wishThemAHappyBirthday": m115
       };
 }

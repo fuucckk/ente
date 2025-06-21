@@ -817,9 +817,10 @@ class _GalleryAppBarWidgetState extends State<GalleryAppBarWidget> {
           (galleryType != GalleryType.ownedCollection &&
               galleryType != GalleryType.sharedCollection &&
               galleryType != GalleryType.hiddenOwnedCollection &&
+              galleryType != GalleryType.favorite &&
               !isQuickLink)) {
         throw Exception(
-          "Cannot share empty collection of type $galleryType",
+          "Cannot share collection of type $galleryType",
         );
       }
       if (Configuration.instance.getUserID() == widget.collection!.owner.id) {
@@ -850,10 +851,10 @@ class _GalleryAppBarWidgetState extends State<GalleryAppBarWidget> {
     try {
       if (galleryType == GalleryType.sharedPublicCollection &&
           collection!.isCollectEnabledForPublicLink()) {
-        final authToken = await CollectionsService.instance
+        final authToken = CollectionsService.instance
             .getSharedPublicAlbumToken(collection.id);
-        final albumKey = await CollectionsService.instance
-            .getSharedPublicAlbumKey(collection.id);
+        final albumKey =
+            CollectionsService.instance.getSharedPublicAlbumKey(collection.id);
 
         final res = await showChoiceDialog(
           context,

@@ -113,10 +113,11 @@ const logout = () => {
     return ipcRenderer.invoke("logout");
 };
 
-const masterKeyB64 = () => ipcRenderer.invoke("masterKeyB64");
+const masterKeyFromSafeStorage = () =>
+    ipcRenderer.invoke("masterKeyFromSafeStorage");
 
-const saveMasterKeyB64 = (masterKeyB64: string) =>
-    ipcRenderer.invoke("saveMasterKeyB64", masterKeyB64);
+const saveMasterKeyInSafeStorage = (masterKey: string) =>
+    ipcRenderer.invoke("saveMasterKeyInSafeStorage", masterKey);
 
 const lastShownChangelogVersion = () =>
     ipcRenderer.invoke("lastShownChangelogVersion");
@@ -193,28 +194,31 @@ const convertToJPEG = (imageData: Uint8Array) =>
     ipcRenderer.invoke("convertToJPEG", imageData);
 
 const generateImageThumbnail = (
-    dataOrPathOrZipItem: Uint8Array | string | ZipItem,
+    pathOrZipItem: string | ZipItem,
     maxDimension: number,
     maxSize: number,
 ) =>
     ipcRenderer.invoke(
         "generateImageThumbnail",
-        dataOrPathOrZipItem,
+        pathOrZipItem,
         maxDimension,
         maxSize,
     );
 
 const ffmpegExec = (
     command: FFmpegCommand,
-    dataOrPathOrZipItem: Uint8Array | string | ZipItem,
+    pathOrZipItem: string | ZipItem,
     outputFileExtension: string,
 ) =>
     ipcRenderer.invoke(
         "ffmpegExec",
         command,
-        dataOrPathOrZipItem,
+        pathOrZipItem,
         outputFileExtension,
     );
+
+const ffmpegDetermineVideoDuration = (pathOrZipItem: string | ZipItem) =>
+    ipcRenderer.invoke("ffmpegDetermineVideoDuration", pathOrZipItem);
 
 // - Utility processes
 
@@ -355,8 +359,8 @@ contextBridge.exposeInMainWorld("electron", {
     selectDirectory,
     pathForFile,
     logout,
-    masterKeyB64,
-    saveMasterKeyB64,
+    masterKeyFromSafeStorage,
+    saveMasterKeyInSafeStorage,
     lastShownChangelogVersion,
     setLastShownChangelogVersion,
     isAutoLaunchEnabled,
@@ -392,6 +396,7 @@ contextBridge.exposeInMainWorld("electron", {
     convertToJPEG,
     generateImageThumbnail,
     ffmpegExec,
+    ffmpegDetermineVideoDuration,
 
     // - ML
 
