@@ -143,17 +143,17 @@ func (r *Repository) webAuthnInstanceForRPID(rpID string) (*webauthn.WebAuthn, e
 }
 
 func (r *Repository) selectRPIDForUser(userID int64) (string, error) {
-	if r.legacyRPID == "" {
-		return r.RPID, nil
-	}
-
-	hasLegacyPasskeys, err := r.hasPasskeyCredentialsForRPID(userID, r.legacyRPID)
+	hasLegacyPasskeys, err := r.hasLegacyPasskeyCredentials(userID)
 	if err != nil {
 		return "", err
 	}
 	if hasLegacyPasskeys {
+		if r.legacyRPID == "" {
+			return "", fmt.Errorf("webauthn.legacy-rpid is required for existing passkeys without rp_id")
+		}
 		return r.legacyRPID, nil
 	}
+
 	return r.RPID, nil
 }
 
@@ -165,13 +165,6 @@ func (r *Repository) rpIDForSession(session *ente.WebAuthnSession) string {
 		return r.legacyRPID
 	}
 	return r.RPID
-}
-
-func (r *Repository) includeCredentialsWithoutRPID(rpID string) bool {
-	if r.legacyRPID != "" {
-		return rpID == r.legacyRPID
-	}
-	return rpID == r.RPID
 }
 
 func (r *Repository) AccountsURLForUser(userID int64) (string, error) {
@@ -680,11 +673,18 @@ func (r *Repository) marshalSessionDataToWebAuthnSession(session *webauthn.Sessi
 }
 
 func (r *Repository) GetUserPasskeyCredentials(userID int64, rpID string) (credentials []webauthn.Credential, err error) {
+	if rpID == r.legacyRPID {
+		return r.getLegacyPasskeyCredentials(userID, rpID)
+	}
+	return r.getPasskeyCredentialsForRPID(userID, rpID)
+}
+
+func (r *Repository) getPasskeyCredentialsForRPID(userID int64, rpID string) (credentials []webauthn.Credential, err error) {
 	rows, err := r.DB.Query(`
 		SELECT
 			pc.passkey_id,
 			pc.credential_id,
-			COALESCE(pc.rp_id, $2) AS rp_id,
+			pc.rp_id,
 			pc.public_key,
 			pc.attestation_type,
 			pc.authenticator_transports,
@@ -695,17 +695,42 @@ func (r *Repository) GetUserPasskeyCredentials(userID int64, rpID string) (crede
 		JOIN passkeys p ON pc.passkey_id = p.id
 		WHERE p.user_id = $1
 			AND p.deleted_at IS NULL
-			AND (
-				pc.rp_id = $2
-				OR (pc.rp_id IS NULL AND $3)
-			)
-	`, userID, rpID, r.includeCredentialsWithoutRPID(rpID))
+			AND pc.rp_id = $2
+	`, userID, rpID)
 	if err != nil {
 		err = stacktrace.Propagate(err, "")
 		return
 	}
-	defer rows.Close()
+	return webAuthnCredentialsFromRows(rows)
+}
 
+func (r *Repository) getLegacyPasskeyCredentials(userID int64, rpID string) (credentials []webauthn.Credential, err error) {
+	rows, err := r.DB.Query(`
+		SELECT
+			pc.passkey_id,
+			pc.credential_id,
+			$2 AS rp_id,
+			pc.public_key,
+			pc.attestation_type,
+			pc.authenticator_transports,
+			pc.credential_flags,
+			pc.authenticator,
+			pc.created_at
+		FROM passkey_credentials pc
+		JOIN passkeys p ON pc.passkey_id = p.id
+		WHERE p.user_id = $1
+			AND p.deleted_at IS NULL
+			AND (pc.rp_id = $2 OR pc.rp_id IS NULL)
+	`, userID, rpID)
+	if err != nil {
+		err = stacktrace.Propagate(err, "")
+		return
+	}
+	return webAuthnCredentialsFromRows(rows)
+}
+
+func webAuthnCredentialsFromRows(rows *sql.Rows) (credentials []webauthn.Credential, err error) {
+	defer rows.Close()
 	for rows.Next() {
 		var pc ente.PasskeyCredential
 		if err = rows.Scan(
@@ -736,7 +761,7 @@ func (r *Repository) GetUserPasskeyCredentials(userID int64, rpID string) (crede
 	return
 }
 
-func (r *Repository) hasPasskeyCredentialsForRPID(userID int64, rpID string) (bool, error) {
+func (r *Repository) hasLegacyPasskeyCredentials(userID int64) (bool, error) {
 	var count int64
 	err := r.DB.QueryRow(`
 		SELECT COUNT(*)
@@ -744,11 +769,8 @@ func (r *Repository) hasPasskeyCredentialsForRPID(userID int64, rpID string) (bo
 		JOIN passkeys p ON pc.passkey_id = p.id
 		WHERE p.user_id = $1
 			AND p.deleted_at IS NULL
-			AND (
-				pc.rp_id = $2
-				OR (pc.rp_id IS NULL AND $3)
-			)
-	`, userID, rpID, r.includeCredentialsWithoutRPID(rpID)).Scan(&count)
+			AND (pc.rp_id IS NULL OR pc.rp_id = $2)
+	`, userID, r.legacyRPID).Scan(&count)
 	if err != nil {
 		return false, stacktrace.Propagate(err, "")
 	}
