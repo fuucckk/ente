@@ -549,7 +549,24 @@ self_cell!(
     }
 );
 
-pub struct ContextHandle(Mutex<ContextHandleCell>);
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MtmdCacheKey {
+    mmproj_path: String,
+    media_marker: String,
+    use_gpu: bool,
+    print_timings: bool,
+    n_threads: i32,
+}
+
+struct CachedMtmdContext {
+    key: MtmdCacheKey,
+    context: Arc<MtmdContext>,
+}
+
+pub struct ContextHandle {
+    cell: Mutex<ContextHandleCell>,
+    mtmd_context: Mutex<Option<CachedMtmdContext>>,
+}
 
 pub type ContextHandleRef = Arc<ContextHandle>;
 
@@ -561,16 +578,81 @@ impl ContextHandle {
         owner: ModelHandleRef,
         builder: impl for<'a> FnOnce(&'a ModelHandleRef) -> Result<LlamaContext<'a>, String>,
     ) -> Result<Self, String> {
-        ContextHandleCell::try_new(owner, builder).map(|cell| ContextHandle(Mutex::new(cell)))
+        ContextHandleCell::try_new(owner, builder).map(|cell| ContextHandle {
+            cell: Mutex::new(cell),
+            mtmd_context: Mutex::new(None),
+        })
     }
 
     fn with_context_mut<R>(
         &self,
         func: impl for<'a, 'b> FnOnce(&'b mut LlamaContext<'a>) -> R,
     ) -> R {
-        let mut guard = self.0.lock();
+        let mut guard = self.cell.lock();
         guard.with_dependent_mut(|_owner, context| func(context))
     }
+
+    fn cached_mtmd_context(
+        &self,
+        model: &LlamaModel,
+        mmproj_path: &str,
+        marker: &str,
+    ) -> Result<Arc<MtmdContext>, String> {
+        if !Path::new(mmproj_path).exists() {
+            return Err(format!("mmproj file not found at {mmproj_path}"));
+        }
+
+        let (key, params) = mtmd_cache_key_and_params(mmproj_path, marker)?;
+        let mut guard = self.mtmd_context.lock();
+
+        if let Some(cached) = guard.as_ref()
+            && cached.key == key
+        {
+            return Ok(cached.context.clone());
+        }
+
+        let mtmd_ctx = Arc::new(
+            MtmdContext::init_from_file(mmproj_path, model, &params)
+                .map_err(|err| format_error("Failed to initialize mmproj", err))?,
+        );
+
+        if !mtmd_ctx.support_vision() {
+            return Err("Model does not support vision input".to_string());
+        }
+
+        *guard = Some(CachedMtmdContext {
+            key,
+            context: mtmd_ctx.clone(),
+        });
+        Ok(mtmd_ctx)
+    }
+}
+
+fn mtmd_cache_key_and_params(
+    mmproj_path: &str,
+    marker: &str,
+) -> Result<(MtmdCacheKey, MtmdContextParams), String> {
+    let media_marker = CString::new(marker.to_string())
+        .map_err(|err| format_error("Invalid media marker", err))?;
+    let params = MtmdContextParams {
+        use_gpu: false,
+        print_timings: false,
+        media_marker,
+        ..Default::default()
+    };
+    let marker = params
+        .media_marker
+        .to_str()
+        .map_err(|err| format_error("Invalid media marker", err))?
+        .to_string();
+    let key = MtmdCacheKey {
+        mmproj_path: mmproj_path.to_string(),
+        media_marker: marker,
+        use_gpu: params.use_gpu,
+        print_timings: params.print_timings,
+        n_threads: params.n_threads,
+    };
+    Ok((key, params))
 }
 
 pub fn init_backend() -> Result<(), String> {
@@ -718,6 +800,19 @@ pub fn apply_chat_template(
     add_assistant: bool,
 ) -> Result<String, String> {
     build_chat_prompt(model.model(), messages, template_override, add_assistant)
+}
+
+pub fn prewarm_multimodal_context(
+    context: &ContextHandle,
+    mmproj_path: String,
+    media_marker: Option<String>,
+) -> Result<(), String> {
+    let marker = media_marker.unwrap_or_else(|| mtmd_default_marker().to_string());
+    context.with_context_mut(|ctx| {
+        context
+            .cached_mtmd_context(ctx.model, &mmproj_path, &marker)
+            .map(|_| ())
+    })
 }
 
 pub fn generate_chat_stream(
@@ -890,25 +985,7 @@ pub fn generate_chat_stream(
             let mmproj_path = mmproj_path.ok_or_else(|| {
                 "mmproj_path is required when image_paths are provided".to_string()
             })?;
-            if !Path::new(&mmproj_path).exists() {
-                return Err(format!("mmproj file not found at {mmproj_path}"));
-            }
-
-            let media_marker = CString::new(marker.clone())
-                .map_err(|err| format_error("Invalid media marker", err))?;
-            let mtmd_params = MtmdContextParams {
-                use_gpu: false,
-                print_timings: false,
-                media_marker,
-                ..Default::default()
-            };
-
-            let mtmd_ctx = MtmdContext::init_from_file(&mmproj_path, ctx.model, &mtmd_params)
-                .map_err(|err| format_error("Failed to initialize mmproj", err))?;
-
-            if !mtmd_ctx.support_vision() {
-                return Err("Model does not support vision input".to_string());
-            }
+            let mtmd_ctx = context.cached_mtmd_context(ctx.model, &mmproj_path, &marker)?;
 
             let mut bitmaps = Vec::with_capacity(image_paths.len());
             for image_path in &image_paths {

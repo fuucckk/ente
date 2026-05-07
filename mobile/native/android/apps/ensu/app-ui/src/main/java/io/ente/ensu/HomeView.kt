@@ -439,6 +439,9 @@ private fun <I> rememberAttachmentPicker(
                 }
                 if (attachment != null) {
                     latestStore.addAttachment(attachment)
+                    if (type == AttachmentType.Image) {
+                        latestStore.prewarmImageInferenceIfDownloaded()
+                    }
                 } else {
                     latestStore.setAttachmentProcessing(false)
                 }

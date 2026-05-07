@@ -1705,6 +1705,47 @@ pub fn llm_free_model(state: State<LlmState>) -> Result<(), ApiError> {
 }
 
 #[tauri::command]
+pub async fn llm_prewarm_multimodal_context(
+    state: State<'_, LlmState>,
+    mmproj_path: String,
+    media_marker: Option<String>,
+) -> Result<(), ApiError> {
+    let context = state
+        .context
+        .lock()
+        .map_err(|_| ApiError::new("lock", "Failed to lock LLM context store"))?
+        .clone()
+        .ok_or_else(|| ApiError::new("llm_not_ready", "Model context not loaded"))?;
+
+    logging::log(
+        "LLM",
+        format!("prewarm multimodal context requested mmproj_path={mmproj_path}"),
+    );
+    async_runtime::spawn_blocking(move || {
+        match catch_unwind(AssertUnwindSafe(|| {
+            llm::prewarm_multimodal_context(context.as_ref(), mmproj_path, media_marker)
+        })) {
+            Ok(result) => result.map_err(llm_error),
+            Err(payload) => {
+                let message = panic_message(payload);
+                log_command_panic("llm_prewarm_multimodal_context", &message);
+                Err(ApiError::new(
+                    "llm_panic",
+                    format!("llm_prewarm_multimodal_context panicked: {message}"),
+                ))
+            }
+        }
+    })
+    .await
+    .map_err(|err| {
+        logging::log("LLM", format!("prewarm multimodal join failed error={err}"));
+        llm_thread_error()
+    })??;
+    logging::log("LLM", "prewarm multimodal context succeeded");
+    Ok(())
+}
+
+#[tauri::command]
 pub fn llm_generate_chat_stream(
     state: State<LlmState>,
     window: Window,

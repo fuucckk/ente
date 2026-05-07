@@ -75,6 +75,7 @@ fn main() {
             commands::llm_create_context,
             commands::llm_free_context,
             commands::llm_free_model,
+            commands::llm_prewarm_multimodal_context,
             commands::llm_generate_chat_stream,
             commands::llm_cancel,
             commands::system_info,

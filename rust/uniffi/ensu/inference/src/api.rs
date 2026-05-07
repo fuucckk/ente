@@ -365,6 +365,16 @@ pub fn apply_chat_template(
 }
 
 #[uniffi::export]
+pub fn prewarm_multimodal_context(
+    context: Arc<ContextHandle>,
+    mmproj_path: String,
+    media_marker: Option<String>,
+) -> Result<(), InferenceError> {
+    core::prewarm_multimodal_context(context.handle.as_ref(), mmproj_path, media_marker)
+        .map_err(InferenceError::from)
+}
+
+#[uniffi::export]
 pub fn generate_chat_stream(
     context: Arc<ContextHandle>,
     request: GenerateChatRequest,

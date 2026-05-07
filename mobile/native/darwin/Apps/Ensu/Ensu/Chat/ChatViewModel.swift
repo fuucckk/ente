@@ -185,6 +185,10 @@ final class InferenceRsProvider {
         return true
     }
 
+    func prewarmImageInference(target: InferenceModelTarget) async {
+        _ = target
+    }
+
     func estimatedDownloadSize(target: InferenceModelTarget) async -> Int64? {
         _ = target
         return nil
@@ -1101,10 +1105,22 @@ final class ChatViewModel: ObservableObject {
                 await MainActor.run {
                     self.draftAttachments.append(attachment)
                     self.isProcessingAttachments = false
+                    self.prewarmImageInferenceIfDownloaded()
                 }
             } catch {
                 await MainActor.run { self.isProcessingAttachments = false }
             }
+        }
+    }
+
+    private func prewarmImageInferenceIfDownloaded() {
+        guard !isGenerating && !isDownloading else { return }
+        let target = modelSettings.currentTarget()
+        guard provider.isModelDownloaded(target: target) else { return }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await self.provider.prewarmImageInference(target: target)
         }
     }
 

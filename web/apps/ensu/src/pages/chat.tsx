@@ -2178,6 +2178,20 @@ const Page: React.FC = () => {
         }
     }, [ensureProvider, formatErrorMessage, getModelSettings, showMiniDialog]);
 
+    const prewarmSelectedImageInference = useCallback(() => {
+        if (!isTauriRuntime) return;
+        void (async () => {
+            try {
+                const provider = await ensureProvider();
+                await provider.prewarmImageInferenceIfAvailable(
+                    getModelSettings(),
+                );
+            } catch (error) {
+                log.error("Failed to prewarm image inference", error);
+            }
+        })();
+    }, [ensureProvider, getModelSettings, isTauriRuntime]);
+
     useEffect(() => {
         if (!firstPaintDone) return;
         const cancelIdle = scheduleIdleTask(() => {
@@ -3569,6 +3583,7 @@ const Page: React.FC = () => {
 
             if (files.length > 0) {
                 handleImageSelect(files);
+                prewarmSelectedImageInference();
             } else {
                 handleImageCancel();
             }
@@ -3583,6 +3598,7 @@ const Page: React.FC = () => {
         closeAttachmentMenu,
         handleImageCancel,
         handleImageSelect,
+        prewarmSelectedImageInference,
         showMiniDialog,
     ]);
 

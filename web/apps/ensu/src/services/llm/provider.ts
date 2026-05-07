@@ -114,7 +114,11 @@ export class LlmProvider {
     private downloadAbort?: AbortController;
     private progressListeners = new Set<(progress: DownloadProgress) => void>();
     private modelReady = false;
-    private ensureInFlight?: { key: string; promise: Promise<void> };
+    private ensureInFlight?: {
+        key: string;
+        promise: Promise<void>;
+        emitsProgress: boolean;
+    };
 
     public async initialize() {
         if (this.initialized) return;
@@ -224,8 +228,12 @@ export class LlmProvider {
         };
     }
 
-    public async ensureModelReady(settings: ModelSettings) {
+    public async ensureModelReady(
+        settings: ModelSettings,
+        options: { emitProgress?: boolean } = {},
+    ) {
         await this.initialize();
+        const emitProgress = options.emitProgress ?? true;
         const { model, contextSize } = this.resolveRuntimeSettings(settings);
         const contextKey = JSON.stringify({ contextSize });
 
@@ -248,7 +256,18 @@ export class LlmProvider {
 
         if (this.ensureInFlight) {
             if (this.ensureInFlight.key === ensureKey) {
-                return this.ensureInFlight.promise;
+                const inFlight = this.ensureInFlight;
+                if (emitProgress && !inFlight.emitsProgress) {
+                    inFlight.emitsProgress = true;
+                    this.emitProgress({
+                        percent: 100,
+                        status: "Loading model...",
+                    });
+                    await inFlight.promise;
+                    this.emitProgress({ percent: 100, status: "Ready" });
+                    return;
+                }
+                return inFlight.promise;
             }
             try {
                 await this.ensureInFlight.promise;
@@ -274,7 +293,9 @@ export class LlmProvider {
             ) {
                 log.info("LLM model already ready", { modelId: model.id });
                 this.modelReady = true;
-                this.emitProgress({ percent: 100, status: "Ready" });
+                if (emitProgress) {
+                    this.emitProgress({ percent: 100, status: "Ready" });
+                }
                 return;
             }
 
@@ -339,7 +360,9 @@ export class LlmProvider {
                 }
             }
 
-            this.emitProgress({ percent: 100, status: "Loading model..." });
+            if (emitProgress) {
+                this.emitProgress({ percent: 100, status: "Loading model..." });
+            }
             log.info("LLM load model", { modelPath });
             await this.backend.loadModel({ modelPath });
             log.info("LLM create context", { modelPath, contextSize });
@@ -351,10 +374,16 @@ export class LlmProvider {
             this.currentContextKey = contextKey;
             this.modelReady = true;
             log.info("LLM ready", { modelId: model.id, modelPath });
-            this.emitProgress({ percent: 100, status: "Ready" });
+            if (emitProgress) {
+                this.emitProgress({ percent: 100, status: "Ready" });
+            }
         })();
 
-        this.ensureInFlight = { key: ensureKey, promise: ensurePromise };
+        this.ensureInFlight = {
+            key: ensureKey,
+            promise: ensurePromise,
+            emitsProgress: emitProgress,
+        };
 
         try {
             await ensurePromise;
@@ -370,6 +399,25 @@ export class LlmProvider {
         onEvent?: (event: GenerateEvent) => void,
     ): Promise<GenerateSummary> {
         return this.backend.generateChatStream(request, onEvent);
+    }
+
+    public async prewarmImageInferenceIfAvailable(settings: ModelSettings) {
+        await this.initialize();
+        if (this.backend.kind !== "tauri") return;
+
+        const availability = await this.checkModelAvailability(settings);
+        if (
+            !availability.modelAvailable ||
+            !availability.mmprojPath ||
+            availability.mmprojAvailable !== true
+        ) {
+            return;
+        }
+
+        await this.ensureModelReady(settings, { emitProgress: false });
+        const mmprojPath = this.currentMmprojPath ?? availability.mmprojPath;
+        if (!mmprojPath || !this.backend.prewarmMultimodalContext) return;
+        await this.backend.prewarmMultimodalContext(mmprojPath);
     }
 
     public cancelGeneration(jobId: number) {
