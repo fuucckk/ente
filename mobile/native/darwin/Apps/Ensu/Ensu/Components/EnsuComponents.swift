@@ -186,29 +186,31 @@ struct ImageAttachmentThumbnail: View {
     let accessibilityLabel: String
     var width: CGFloat
     var height: CGFloat
+    var portraitWidth: CGFloat? = nil
+    var portraitHeight: CGFloat? = nil
+    var squareSize: CGFloat? = nil
     var isUploading: Bool = false
     var onDelete: (() -> Void)? = nil
 
     var body: some View {
+        let loadedImage = platformImage(from: url)
+        let size = thumbnailSize(for: loadedImage)
+
         ZStack(alignment: .topTrailing) {
-            thumbnailContent
-                .frame(width: width, height: height)
+            thumbnailContent(loadedImage)
+                .frame(width: size.width, height: size.height)
                 .background(EnsuColor.fillFaint)
                 .clipShape(RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous)
-                        .stroke(EnsuColor.border.opacity(0.7), lineWidth: 0.5)
-                }
                 .contentShape(RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous))
 
             if isUploading {
                 RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous)
                     .fill(.black.opacity(0.18))
-                    .frame(width: width, height: height)
+                    .frame(width: size.width, height: size.height)
 
                 ProgressView()
                     .scaleEffect(0.8)
-                    .frame(width: width, height: height)
+                    .frame(width: size.width, height: size.height)
             }
 
             if let onDelete {
@@ -223,7 +225,7 @@ struct ImageAttachmentThumbnail: View {
                         .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .frame(width: 28, height: 28)
+                .frame(width: 20, height: 20)
                 .background(.black.opacity(0.45))
                 .clipShape(Circle())
                 .padding(4)
@@ -234,9 +236,9 @@ struct ImageAttachmentThumbnail: View {
     }
 
     @ViewBuilder
-    private var thumbnailContent: some View {
-        if let image = platformImage(from: url) {
-            image
+    private func thumbnailContent(_ loadedImage: PlatformImageContent?) -> some View {
+        if let loadedImage {
+            loadedImage.image
                 .resizable()
                 .scaledToFill()
         } else {
@@ -248,7 +250,23 @@ struct ImageAttachmentThumbnail: View {
         }
     }
 
-    private func platformImage(from url: URL?) -> Image? {
+    private func thumbnailSize(for loadedImage: PlatformImageContent?) -> CGSize {
+        guard let loadedImage else {
+            return CGSize(width: width, height: height)
+        }
+        if loadedImage.pixelHeight > loadedImage.pixelWidth,
+           let portraitWidth,
+           let portraitHeight {
+            return CGSize(width: portraitWidth, height: portraitHeight)
+        }
+        if loadedImage.pixelHeight == loadedImage.pixelWidth,
+           let squareSize {
+            return CGSize(width: squareSize, height: squareSize)
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    private func platformImage(from url: URL?) -> PlatformImageContent? {
         guard let url else {
             return nil
         }
@@ -257,16 +275,30 @@ struct ImageAttachmentThumbnail: View {
         guard let image = UIImage(contentsOfFile: url.path) else {
             return nil
         }
-        return Image(uiImage: image)
+        return PlatformImageContent(
+            image: Image(uiImage: image),
+            pixelWidth: image.size.width,
+            pixelHeight: image.size.height
+        )
         #elseif os(macOS)
         guard let image = NSImage(contentsOf: url) else {
             return nil
         }
-        return Image(nsImage: image)
+        return PlatformImageContent(
+            image: Image(nsImage: image),
+            pixelWidth: image.size.width,
+            pixelHeight: image.size.height
+        )
         #else
         return nil
         #endif
     }
+}
+
+private struct PlatformImageContent {
+    let image: Image
+    let pixelWidth: CGFloat
+    let pixelHeight: CGFloat
 }
 
 struct ToastView: View {
@@ -444,6 +476,9 @@ struct ImageAttachmentThumbnail: View {
     let accessibilityLabel: String
     var width: CGFloat
     var height: CGFloat
+    var portraitWidth: CGFloat? = nil
+    var portraitHeight: CGFloat? = nil
+    var squareSize: CGFloat? = nil
     var isUploading: Bool = false
     var onDelete: (() -> Void)? = nil
 

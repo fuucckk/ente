@@ -11,7 +11,7 @@ import { Box, IconButton, Stack, Typography } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { MarkdownRenderer } from "components/MarkdownRenderer";
 import GeneratingRiveIndicator from "components/chat/GeneratingRiveIndicator";
-import React, { memo, useCallback, useEffect, useMemo } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
     STREAMING_SELECTION_KEY,
     type BranchSwitcher,
@@ -74,6 +74,22 @@ interface ImageAttachmentThumbnailProps {
 
 const ImageAttachmentThumbnail = memo(
     ({ attachment, previewUrl, onClick }: ImageAttachmentThumbnailProps) => {
+        const [orientation, setOrientation] = useState<
+            "landscape" | "portrait" | "square"
+        >("landscape");
+        const size =
+            orientation === "portrait"
+                ? { width: { xs: 112, sm: 124 }, height: { xs: 148, sm: 164 } }
+                : orientation === "square"
+                  ? {
+                        width: { xs: 132, sm: 140 },
+                        height: { xs: 132, sm: 140 },
+                    }
+                  : {
+                        width: { xs: 148, sm: 164 },
+                        height: { xs: 112, sm: 124 },
+                    };
+
         return (
             <Box
                 component="button"
@@ -81,11 +97,10 @@ const ImageAttachmentThumbnail = memo(
                 aria-label={attachment.name || "Open image attachment"}
                 onClick={onClick}
                 sx={{
-                    width: { xs: 148, sm: 164 },
-                    height: { xs: 112, sm: 124 },
+                    width: size.width,
+                    height: size.height,
                     p: 0,
-                    border: "1px solid",
-                    borderColor: "divider",
+                    border: 0,
                     borderRadius: 2,
                     bgcolor: "fill.faint",
                     cursor: "pointer",
@@ -103,6 +118,16 @@ const ImageAttachmentThumbnail = memo(
                         component="img"
                         src={previewUrl}
                         alt={attachment.name || "Image attachment"}
+                        onLoad={(event) => {
+                            const img = event.currentTarget;
+                            if (img.naturalHeight > img.naturalWidth) {
+                                setOrientation("portrait");
+                            } else if (img.naturalHeight === img.naturalWidth) {
+                                setOrientation("square");
+                            } else {
+                                setOrientation("landscape");
+                            }
+                        }}
                         sx={{
                             width: "100%",
                             height: "100%",

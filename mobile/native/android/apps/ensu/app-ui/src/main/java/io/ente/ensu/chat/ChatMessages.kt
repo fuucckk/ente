@@ -515,6 +515,9 @@ private fun UserMessageBubble(
                             contentDescription = attachment.name,
                             width = 164.dp,
                             height = 124.dp,
+                            portraitWidth = 124.dp,
+                            portraitHeight = 164.dp,
+                            squareSize = 140.dp,
                             isUploading = attachment.isUploading,
                             onClick = { onOpenAttachment(attachment) }
                         )

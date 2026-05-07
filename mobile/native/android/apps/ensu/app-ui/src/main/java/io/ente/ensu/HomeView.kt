@@ -52,6 +52,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.google.accompanist.navigation.animation.rememberAnimatedNavController
 import io.ente.ensu.auth.AuthFlowScreen
 import io.ente.ensu.chat.SessionDrawer
+import io.ente.ensu.components.ImageAttachmentPreviewDialog
 import io.ente.ensu.components.NativeChoiceDialog
 import io.ente.ensu.data.AdvancedSettingsDataStore
 import io.ente.ensu.data.auth.EnsuAuthService
@@ -103,6 +104,7 @@ fun HomeView(
     var deleteSessionTarget by remember { mutableStateOf<io.ente.ensu.domain.model.ChatSession?>(null) }
     var showLogShareDialog by remember { mutableStateOf(false) }
     var showSignInComingSoon by remember { mutableStateOf(false) }
+    var imagePreviewAttachment by remember { mutableStateOf<Attachment?>(null) }
 
     val handleSignInRequest: () -> Unit = handle@{
         if (!EnsuFeatureFlags.enableSignIn) {
@@ -280,8 +282,22 @@ fun HomeView(
             onAttachmentDownloads = { showAttachmentDownloads = true },
             onShowLogShareDialog = { showLogShareDialog = true },
             onAttachmentSelected = handleAttachmentSelected,
-            onOpenAttachment = { attachment -> openAttachment(context, attachment) },
+            onOpenAttachment = { attachment ->
+                if (attachment.type == AttachmentType.Image) {
+                    imagePreviewAttachment = attachment
+                } else {
+                    openAttachment(context, attachment)
+                }
+            },
             onDeleteAccount = { openDeleteAccountEmail(context) }
+        )
+    }
+
+    imagePreviewAttachment?.let { attachment ->
+        ImageAttachmentPreviewDialog(
+            path = attachment.localPath,
+            contentDescription = attachment.name,
+            onDismiss = { imagePreviewAttachment = null }
         )
     }
 

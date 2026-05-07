@@ -589,6 +589,10 @@ const Page: React.FC = () => {
     const [pendingImagePreviews, setPendingImagePreviews] = useState<
         Record<string, string>
     >({});
+    const [imagePreview, setImagePreview] = useState<{
+        url: string;
+        name: string;
+    } | null>(null);
     const [downloadStatus, setDownloadStatus] =
         useState<DownloadProgress | null>(null);
     const [loadedModelName, setLoadedModelName] = useState<string | null>(null);
@@ -619,6 +623,7 @@ const Page: React.FC = () => {
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
     const attachmentPreviewUrlsRef = useRef<Record<string, string>>({});
     const pendingPreviewUrlsRef = useRef<Record<string, string>>({});
+    const imagePreviewUrlRef = useRef<string | null>(null);
     const attachmentPreviewInFlightRef = useRef<Record<string, Promise<void>>>(
         {},
     );
@@ -1954,7 +1959,9 @@ const Page: React.FC = () => {
 
             const paths = await Promise.all(
                 images.map(async (image) => {
-                    const bytes = new Uint8Array(await image.file.arrayBuffer());
+                    const bytes = new Uint8Array(
+                        await image.file.arrayBuffer(),
+                    );
                     const path = await join(dir, `${image.id}.jpg`);
                     await writeBinaryFile({ path, contents: bytes });
                     return path;
@@ -2566,6 +2573,14 @@ const Page: React.FC = () => {
         [showToast],
     );
 
+    const closeImagePreview = useCallback(() => {
+        setImagePreview(null);
+        if (imagePreviewUrlRef.current) {
+            URL.revokeObjectURL(imagePreviewUrlRef.current);
+            imagePreviewUrlRef.current = null;
+        }
+    }, []);
+
     const handleOpenAttachment = useCallback(
         async (message: ChatMessage, attachment: ChatAttachment) => {
             if (!chatKey) return;
@@ -2588,6 +2603,20 @@ const Page: React.FC = () => {
                       : baseName.includes(".")
                         ? `${baseName.replace(/\.[^/.]+$/, "")}.txt`
                         : `${baseName}.txt`;
+
+                if (treatAsImage) {
+                    const mime = inferImageMime(baseName);
+                    const blob = new Blob([toSafeBlobPart(bytes)], {
+                        type: mime,
+                    });
+                    const url = URL.createObjectURL(blob);
+                    if (imagePreviewUrlRef.current) {
+                        URL.revokeObjectURL(imagePreviewUrlRef.current);
+                    }
+                    imagePreviewUrlRef.current = url;
+                    setImagePreview({ url, name: baseName });
+                    return;
+                }
 
                 if (isTauriRuntime) {
                     const [
@@ -2626,12 +2655,6 @@ const Page: React.FC = () => {
                     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
                     return;
                 }
-
-                const mime = inferImageMime(baseName);
-                const blob = new Blob([toSafeBlobPart(bytes)], { type: mime });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank", "noopener");
-                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
             } catch (error) {
                 log.error("Failed to open attachment", error);
                 showMiniDialog({
@@ -2643,6 +2666,15 @@ const Page: React.FC = () => {
         },
         [chatKey, inferImageMime, isTauriRuntime, showMiniDialog],
     );
+
+    useEffect(() => {
+        return () => {
+            if (imagePreviewUrlRef.current) {
+                URL.revokeObjectURL(imagePreviewUrlRef.current);
+                imagePreviewUrlRef.current = null;
+            }
+        };
+    }, []);
 
     const flushStreamingText = useCallback(() => {
         if (streamingFlushTimerRef.current) {
@@ -3525,9 +3557,7 @@ const Page: React.FC = () => {
                     return new File(
                         [toSafeBlobPart(bytes)],
                         normalizedJpegAttachmentName(name),
-                        {
-                            type: "image/jpeg",
-                        },
+                        { type: "image/jpeg" },
                     );
                 }),
             );
@@ -4208,6 +4238,8 @@ const Page: React.FC = () => {
                 setSyncNotificationOpen={setSyncNotificationOpen}
                 syncNotification={syncNotification}
                 modelGateStatus={modelGateStatus}
+                imagePreview={imagePreview}
+                closeImagePreview={closeImagePreview}
             />
         </>
     );

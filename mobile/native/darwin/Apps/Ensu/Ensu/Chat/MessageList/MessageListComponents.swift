@@ -109,6 +109,9 @@ struct UserMessageBubbleView: View {
                                     accessibilityLabel: attachment.name,
                                     width: 164,
                                     height: 124,
+                                    portraitWidth: 124,
+                                    portraitHeight: 164,
+                                    squareSize: 140,
                                     isUploading: attachment.isUploading
                                 )
                                 .onTapGesture {

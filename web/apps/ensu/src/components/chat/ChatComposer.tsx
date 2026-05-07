@@ -431,8 +431,6 @@ export const ChatComposer = memo(
                                                         height: 76,
                                                         borderRadius: 2,
                                                         bgcolor: "fill.faint",
-                                                        border: "1px solid",
-                                                        borderColor: "divider",
                                                         overflow: "hidden",
                                                         display: "flex",
                                                         alignItems: "center",
@@ -473,8 +471,8 @@ export const ChatComposer = memo(
                                                                 "absolute",
                                                             top: 4,
                                                             right: 4,
-                                                            width: 24,
-                                                            height: 24,
+                                                            width: 20,
+                                                            height: 20,
                                                             p: 0,
                                                             borderRadius:
                                                                 "999px",
@@ -496,7 +494,10 @@ export const ChatComposer = memo(
                                                     >
                                                         <HugeiconsIcon
                                                             icon={Cancel01Icon}
-                                                            {...smallIconProps}
+                                                            size={11}
+                                                            strokeWidth={
+                                                                smallIconProps.strokeWidth
+                                                            }
                                                         />
                                                     </IconButton>
                                                 </Box>

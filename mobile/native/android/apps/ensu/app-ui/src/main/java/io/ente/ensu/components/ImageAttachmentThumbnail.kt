@@ -3,9 +3,9 @@ package io.ente.ensu.components
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,9 +29,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.ente.ensu.designsystem.EnsuColor
 import io.ente.ensu.designsystem.EnsuCornerRadius
 import io.ente.ensu.designsystem.HugeIcons
+import io.ente.ensu.designsystem.EnsuSpacing
 import io.ente.ensu.utils.rememberEnsuHaptics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,18 +46,33 @@ fun ImageAttachmentThumbnail(
     width: Dp,
     height: Dp,
     modifier: Modifier = Modifier,
+    portraitWidth: Dp? = null,
+    portraitHeight: Dp? = null,
+    squareSize: Dp? = null,
     isUploading: Boolean = false,
     onDelete: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
     val density = LocalDensity.current
-    val targetWidthPx = with(density) { width.roundToPx() }
-    val targetHeightPx = with(density) { height.roundToPx() }
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, targetWidthPx, targetHeightPx) {
+    val maxWidth = maxOf(width, portraitWidth ?: width, squareSize ?: width)
+    val maxHeight = maxOf(height, portraitHeight ?: height, squareSize ?: height)
+    val targetWidthPx = with(density) { maxWidth.roundToPx() }
+    val targetHeightPx = with(density) { maxHeight.roundToPx() }
+    val image by produceState<DecodedImage?>(initialValue = null, path, targetWidthPx, targetHeightPx) {
         value = decodeSampledImage(path, targetWidthPx, targetHeightPx)
     }
     val haptic = rememberEnsuHaptics()
     val shape = RoundedCornerShape(EnsuCornerRadius.card.dp)
+    val resolvedWidth = when {
+        image?.isPortrait == true && portraitWidth != null -> portraitWidth
+        image?.isSquare == true && squareSize != null -> squareSize
+        else -> width
+    }
+    val resolvedHeight = when {
+        image?.isPortrait == true && portraitHeight != null -> portraitHeight
+        image?.isSquare == true && squareSize != null -> squareSize
+        else -> height
+    }
     val clickModifier = if (onClick != null) {
         Modifier.clickable {
             haptic.perform(HapticFeedbackType.TextHandleMove)
@@ -66,16 +84,15 @@ fun ImageAttachmentThumbnail(
 
     Box(
         modifier = modifier
-            .size(width = width, height = height)
+            .size(width = resolvedWidth, height = resolvedHeight)
             .clip(shape)
             .background(EnsuColor.fillFaint(), shape)
-            .border(1.dp, EnsuColor.border().copy(alpha = 0.7f), shape)
             .then(clickModifier),
         contentAlignment = Alignment.Center
     ) {
-        if (bitmap != null) {
+        if (image != null) {
             Image(
-                bitmap = bitmap!!,
+                bitmap = image!!.bitmap,
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -105,21 +122,22 @@ fun ImageAttachmentThumbnail(
         }
 
         if (onDelete != null) {
-            IconButton(
-                onClick = {
-                    haptic.perform(HapticFeedbackType.LongPress)
-                    onDelete()
-                },
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
-                    .size(28.dp)
+                    .size(20.dp)
                     .background(Color.Black.copy(alpha = 0.42f), CircleShape)
+                    .clickable {
+                        haptic.perform(HapticFeedbackType.LongPress)
+                        onDelete()
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     painter = painterResource(HugeIcons.Cancel01Icon),
                     contentDescription = "Remove image",
-                    modifier = Modifier.size(12.dp),
+                    modifier = Modifier.size(9.dp),
                     tint = Color.White
                 )
             }
@@ -127,11 +145,79 @@ fun ImageAttachmentThumbnail(
     }
 }
 
+@Composable
+fun ImageAttachmentPreviewDialog(
+    path: String?,
+    contentDescription: String?,
+    onDismiss: () -> Unit
+) {
+    val density = LocalDensity.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.94f))
+        ) {
+            val targetWidthPx = with(density) { maxWidth.roundToPx() }
+            val targetHeightPx = with(density) { maxHeight.roundToPx() }
+            val image by produceState<DecodedImage?>(initialValue = null, path, targetWidthPx, targetHeightPx) {
+                value = decodeSampledImage(path, targetWidthPx, targetHeightPx)
+            }
+
+            if (image != null) {
+                Image(
+                    bitmap = image!!.bitmap,
+                    contentDescription = contentDescription,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(EnsuSpacing.md.dp),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                Icon(
+                    painter = painterResource(HugeIcons.Attachment01Icon),
+                    contentDescription = contentDescription,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(32.dp),
+                    tint = Color.White.copy(alpha = 0.7f)
+                )
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(EnsuSpacing.lg.dp)
+                    .size(32.dp)
+                    .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+            ) {
+                Icon(
+                    painter = painterResource(HugeIcons.Cancel01Icon),
+                    contentDescription = "Close image preview",
+                    modifier = Modifier.size(14.dp),
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+private data class DecodedImage(
+    val bitmap: ImageBitmap
+) {
+    val isPortrait: Boolean = bitmap.height > bitmap.width
+    val isSquare: Boolean = bitmap.height == bitmap.width
+}
+
 private suspend fun decodeSampledImage(
     path: String?,
     targetWidthPx: Int,
     targetHeightPx: Int
-): ImageBitmap? = withContext(Dispatchers.IO) {
+): DecodedImage? = withContext(Dispatchers.IO) {
     if (path.isNullOrBlank() || targetWidthPx <= 0 || targetHeightPx <= 0) {
         return@withContext null
     }
@@ -153,7 +239,7 @@ private suspend fun decodeSampledImage(
         )
     }
 
-    BitmapFactory.decodeFile(path, options)?.asImageBitmap()
+    BitmapFactory.decodeFile(path, options)?.asImageBitmap()?.let(::DecodedImage)
 }
 
 private fun calculateInSampleSize(
