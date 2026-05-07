@@ -372,6 +372,7 @@ export const shouldRestrictToWhitelistedRedirect = () => {
     const hostname = new URL(window.location.origin).hostname;
     return (
         hostname.endsWith("localhost") ||
+        hostname.endsWith(".ente.com") ||
         hostname.endsWith(".ente.io") ||
         hostname.endsWith(".ente.sh")
     );
