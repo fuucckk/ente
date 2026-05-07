@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -160,6 +162,11 @@ fun ImageAttachmentPreviewDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.94f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
         ) {
             val targetWidthPx = with(density) { maxWidth.roundToPx() }
             val targetHeightPx = with(density) { maxHeight.roundToPx() }
@@ -168,12 +175,26 @@ fun ImageAttachmentPreviewDialog(
             }
 
             if (image != null) {
+                val previewPadding = EnsuSpacing.md.dp
+                val availableWidth = maxOf(0.dp, maxWidth - previewPadding - previewPadding)
+                val availableHeight = maxOf(0.dp, maxHeight - previewPadding - previewPadding)
+                val (displayWidth, displayHeight) = fittedImageSize(
+                    bitmapWidth = image!!.bitmap.width,
+                    bitmapHeight = image!!.bitmap.height,
+                    availableWidth = availableWidth,
+                    availableHeight = availableHeight
+                )
                 Image(
                     bitmap = image!!.bitmap,
                     contentDescription = contentDescription,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(EnsuSpacing.md.dp),
+                        .align(Alignment.Center)
+                        .size(width = displayWidth, height = displayHeight)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        ),
                     contentScale = ContentScale.Fit
                 )
             } else {
@@ -211,6 +232,30 @@ private data class DecodedImage(
 ) {
     val isPortrait: Boolean = bitmap.height > bitmap.width
     val isSquare: Boolean = bitmap.height == bitmap.width
+}
+
+private fun fittedImageSize(
+    bitmapWidth: Int,
+    bitmapHeight: Int,
+    availableWidth: Dp,
+    availableHeight: Dp
+): Pair<Dp, Dp> {
+    if (
+        bitmapWidth <= 0 ||
+        bitmapHeight <= 0 ||
+        availableWidth <= 0.dp ||
+        availableHeight <= 0.dp
+    ) {
+        return 0.dp to 0.dp
+    }
+
+    val imageAspect = bitmapWidth.toFloat() / bitmapHeight.toFloat()
+    val availableAspect = availableWidth.value / availableHeight.value
+    return if (imageAspect >= availableAspect) {
+        availableWidth to (availableWidth / imageAspect)
+    } else {
+        (availableHeight * imageAspect) to availableHeight
+    }
 }
 
 private suspend fun decodeSampledImage(

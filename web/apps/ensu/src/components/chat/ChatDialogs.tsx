@@ -394,6 +394,7 @@ export const ChatDialogs = memo(
                     }}
                 >
                     <DialogContent
+                        onClick={closeImagePreview}
                         sx={{
                             position: "relative",
                             p: { xs: 2, sm: 3 },
@@ -408,6 +409,7 @@ export const ChatDialogs = memo(
                                 component="img"
                                 src={imagePreview.url}
                                 alt={imagePreview.name}
+                                onClick={(event) => event.stopPropagation()}
                                 sx={{
                                     display: "block",
                                     maxWidth: "100%",

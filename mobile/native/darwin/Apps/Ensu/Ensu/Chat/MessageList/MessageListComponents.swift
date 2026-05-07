@@ -28,10 +28,94 @@ struct ContentHeightKey: PreferenceKey {
 
 struct AttachmentPreviewItem: Identifiable {
     let url: URL
+    var name: String = ""
     var id: String { url.path }
 }
 
 #if os(iOS)
+struct ImageAttachmentPreview: View {
+    let url: URL
+    let accessibilityLabel: String
+    let onDismiss: () -> Void
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color.black.opacity(0.94)
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        hapticTap()
+                        onDismiss()
+                    }
+
+                if let image {
+                    let size = fittedPreviewSize(
+                        imageSize: image.size,
+                        containerSize: proxy.size,
+                        padding: EnsuSpacing.md
+                    )
+
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size.width, height: size.height)
+                        .contentShape(Rectangle())
+                        .onTapGesture {}
+                        .accessibilityLabel(accessibilityLabel)
+                } else {
+                    Image("Attachment01Icon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 32, height: 32)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .accessibilityLabel(accessibilityLabel)
+                }
+
+                Button(action: {
+                    hapticTap()
+                    onDismiss()
+                }) {
+                    Image("Cancel01Icon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 32, height: 32)
+                .background(.black.opacity(0.35))
+                .clipShape(Circle())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(EnsuSpacing.lg)
+                .accessibilityLabel("Close image preview")
+            }
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            image = UIImage(contentsOfFile: url.path)
+        }
+    }
+
+    private func fittedPreviewSize(imageSize: CGSize, containerSize: CGSize, padding: CGFloat) -> CGSize {
+        let availableWidth = max(0, containerSize.width - (padding * 2))
+        let availableHeight = max(0, containerSize.height - (padding * 2))
+
+        guard imageSize.width > 0, imageSize.height > 0, availableWidth > 0, availableHeight > 0 else {
+            return .zero
+        }
+
+        let imageAspect = imageSize.width / imageSize.height
+        let availableAspect = availableWidth / availableHeight
+        if imageAspect >= availableAspect {
+            return CGSize(width: availableWidth, height: availableWidth / imageAspect)
+        }
+        return CGSize(width: availableHeight * imageAspect, height: availableHeight)
+    }
+}
+
 struct QuickLookPreview: UIViewControllerRepresentable {
     let url: URL
 
