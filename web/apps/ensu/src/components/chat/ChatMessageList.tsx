@@ -1,6 +1,7 @@
 import {
     ArrowLeft01Icon,
     ArrowRight01Icon,
+    Attachment01Icon,
     Copy01Icon,
     Edit01Icon,
     RepeatIcon,
@@ -10,7 +11,7 @@ import { Box, IconButton, Stack, Typography } from "@mui/material";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { MarkdownRenderer } from "components/MarkdownRenderer";
 import GeneratingRiveIndicator from "components/chat/GeneratingRiveIndicator";
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useEffect, useMemo } from "react";
 import {
     STREAMING_SELECTION_KEY,
     type BranchSwitcher,
@@ -65,46 +66,61 @@ export interface ChatMessageListProps {
     actionIconProps: IconProps;
 }
 
-interface AttachmentCardProps {
+interface ImageAttachmentThumbnailProps {
     attachment: ChatAttachment;
+    previewUrl?: string;
     onClick: () => void;
 }
 
-const AttachmentCard = memo(({ attachment, onClick }: AttachmentCardProps) => {
-    return (
-        <Box
-            onClick={onClick}
-            sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                px: 1.5,
-                py: 1,
-                borderRadius: 2,
-                bgcolor: "fill.faint",
-                border: "1px solid",
-                borderColor: "divider",
-                cursor: "pointer",
-                width: "fit-content",
-                maxWidth: "100%",
-                minWidth: 0,
-            }}
-        >
-            <Typography
-                variant="small"
+const ImageAttachmentThumbnail = memo(
+    ({ attachment, previewUrl, onClick }: ImageAttachmentThumbnailProps) => {
+        return (
+            <Box
+                component="button"
+                type="button"
+                aria-label={attachment.name || "Open image attachment"}
+                onClick={onClick}
                 sx={{
-                    color: "text.base",
+                    width: { xs: 148, sm: 164 },
+                    height: { xs: 112, sm: 124 },
+                    p: 0,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    borderRadius: 2,
+                    bgcolor: "fill.faint",
+                    cursor: "pointer",
                     overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    minWidth: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "text.muted",
+                    lineHeight: 0,
+                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.08)",
                 }}
             >
-                {attachment.name ?? "Attachment"}
-            </Typography>
-        </Box>
-    );
-});
+                {previewUrl ? (
+                    <Box
+                        component="img"
+                        src={previewUrl}
+                        alt={attachment.name || "Image attachment"}
+                        sx={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                        }}
+                    />
+                ) : (
+                    <HugeiconsIcon
+                        icon={Attachment01Icon}
+                        size={24}
+                        strokeWidth={1.7}
+                    />
+                )}
+            </Box>
+        );
+    },
+);
 
 const AiSafetyFooter = memo(() => {
     return (
@@ -140,6 +156,8 @@ interface MessageRowProps {
     onRetryMessage: (message: ChatMessage) => void;
     onPrevBranch: (switcher: BranchSwitcher) => void;
     onNextBranch: (switcher: BranchSwitcher) => void;
+    attachmentPreviews: Record<string, string>;
+    onRequestPreview: (attachment: ChatAttachment, sessionUuid: string) => void;
     parseDocumentBlocks: (text: string) => ParsedDocuments;
     stripHiddenParts: (text: string) => string;
     formatTime: (timestamp: number) => string;
@@ -167,6 +185,8 @@ const MessageRow = memo(
         onRetryMessage,
         onPrevBranch,
         onNextBranch,
+        attachmentPreviews,
+        onRequestPreview,
         parseDocumentBlocks,
         stripHiddenParts,
         formatTime,
@@ -215,6 +235,23 @@ const MessageRow = memo(
             !isSelf && isStreaming && !displayText.trim();
         const dots = ".".repeat(loadingDots);
 
+        useEffect(() => {
+            if (imageAttachments.length === 0) {
+                return;
+            }
+
+            for (const attachment of imageAttachments) {
+                if (!attachmentPreviews[attachment.id]) {
+                    onRequestPreview(attachment, message.sessionUuid);
+                }
+            }
+        }, [
+            attachmentPreviews,
+            imageAttachments,
+            message.sessionUuid,
+            onRequestPreview,
+        ]);
+
         return (
             <Box
                 sx={{
@@ -245,9 +282,12 @@ const MessageRow = memo(
                             }}
                         >
                             {imageAttachments.map((attachment) => (
-                                <AttachmentCard
+                                <ImageAttachmentThumbnail
                                     key={attachment.id}
                                     attachment={attachment}
+                                    previewUrl={
+                                        attachmentPreviews[attachment.id]
+                                    }
                                     onClick={() =>
                                         onOpenAttachment(message, attachment)
                                     }
@@ -552,7 +592,7 @@ const MessageRow = memo(
 export const ChatMessageList = memo(
     ({
         messages,
-        attachmentPreviews: _attachmentPreviews,
+        attachmentPreviews,
         branchSwitchers,
         loadingPhrase,
         loadingDots,
@@ -568,6 +608,7 @@ export const ChatMessageList = memo(
         onRetryMessage,
         onPrevBranch,
         onNextBranch,
+        onRequestPreview,
         parseDocumentBlocks,
         stripHiddenParts,
         formatTime,
@@ -627,6 +668,8 @@ export const ChatMessageList = memo(
                         onRetryMessage={onRetryMessage}
                         onPrevBranch={onPrevBranch}
                         onNextBranch={onNextBranch}
+                        attachmentPreviews={attachmentPreviews}
+                        onRequestPreview={onRequestPreview}
                         parseDocumentBlocks={parseDocumentBlocks}
                         stripHiddenParts={stripHiddenParts}
                         formatTime={formatTime}
@@ -644,6 +687,7 @@ export const ChatMessageList = memo(
                 actionButtonSx,
                 actionIconProps,
                 assistantMarkdownSx,
+                attachmentPreviews,
                 branchSwitchers,
                 formatTime,
                 isGenerating,
@@ -655,6 +699,7 @@ export const ChatMessageList = memo(
                 onNextBranch,
                 onOpenAttachment,
                 onPrevBranch,
+                onRequestPreview,
                 onRetryMessage,
                 parseDocumentBlocks,
                 smallIconProps,

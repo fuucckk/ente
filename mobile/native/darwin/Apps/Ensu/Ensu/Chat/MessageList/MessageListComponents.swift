@@ -103,15 +103,29 @@ struct UserMessageBubbleView: View {
                 if !message.attachments.isEmpty {
                     FlowLayout(spacing: EnsuSpacing.sm) {
                         ForEach(message.attachments) { attachment in
-                            AttachmentChip(
-                                name: attachment.name,
-                                size: attachment.formattedSize,
-                                icon: attachment.iconName,
-                                isUploading: attachment.isUploading
-                            )
-                            .onTapGesture {
-                                hapticTap()
-                                onOpenAttachment(attachment)
+                            if attachment.kind == .image, attachment.url != nil {
+                                ImageAttachmentThumbnail(
+                                    url: attachment.url,
+                                    accessibilityLabel: attachment.name,
+                                    width: 164,
+                                    height: 124,
+                                    isUploading: attachment.isUploading
+                                )
+                                .onTapGesture {
+                                    hapticTap()
+                                    onOpenAttachment(attachment)
+                                }
+                            } else {
+                                AttachmentChip(
+                                    name: attachment.name,
+                                    size: attachment.formattedSize,
+                                    icon: attachment.iconName,
+                                    isUploading: attachment.isUploading
+                                )
+                                .onTapGesture {
+                                    hapticTap()
+                                    onOpenAttachment(attachment)
+                                }
                             }
                         }
                     }

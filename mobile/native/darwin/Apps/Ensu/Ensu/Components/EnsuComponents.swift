@@ -1,5 +1,10 @@
 #if canImport(EnteCore)
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 struct PrimaryButton: View {
     let text: String
@@ -176,6 +181,94 @@ struct AttachmentChip: View {
     }
 }
 
+struct ImageAttachmentThumbnail: View {
+    let url: URL?
+    let accessibilityLabel: String
+    var width: CGFloat
+    var height: CGFloat
+    var isUploading: Bool = false
+    var onDelete: (() -> Void)? = nil
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            thumbnailContent
+                .frame(width: width, height: height)
+                .background(EnsuColor.fillFaint)
+                .clipShape(RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous)
+                        .stroke(EnsuColor.border.opacity(0.7), lineWidth: 0.5)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous))
+
+            if isUploading {
+                RoundedRectangle(cornerRadius: EnsuCornerRadius.card, style: .continuous)
+                    .fill(.black.opacity(0.18))
+                    .frame(width: width, height: height)
+
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .frame(width: width, height: height)
+            }
+
+            if let onDelete {
+                Button(action: {
+                    hapticTap()
+                    onDelete()
+                }) {
+                    Image("Cancel01Icon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 10, height: 10)
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .frame(width: 28, height: 28)
+                .background(.black.opacity(0.45))
+                .clipShape(Circle())
+                .padding(4)
+                .accessibilityLabel("Remove image")
+            }
+        }
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var thumbnailContent: some View {
+        if let image = platformImage(from: url) {
+            image
+                .resizable()
+                .scaledToFill()
+        } else {
+            Image("Attachment01Icon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .foregroundStyle(EnsuColor.textMuted)
+        }
+    }
+
+    private func platformImage(from url: URL?) -> Image? {
+        guard let url else {
+            return nil
+        }
+
+        #if os(iOS)
+        guard let image = UIImage(contentsOfFile: url.path) else {
+            return nil
+        }
+        return Image(uiImage: image)
+        #elseif os(macOS)
+        guard let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        return Image(nsImage: image)
+        #else
+        return nil
+        #endif
+    }
+}
+
 struct ToastView: View {
     let message: String
 
@@ -343,6 +436,40 @@ struct AttachmentChip: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+    }
+}
+
+struct ImageAttachmentThumbnail: View {
+    let url: URL?
+    let accessibilityLabel: String
+    var width: CGFloat
+    var height: CGFloat
+    var isUploading: Bool = false
+    var onDelete: (() -> Void)? = nil
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.secondary.opacity(0.14))
+                .frame(width: width, height: height)
+                .overlay {
+                    Image(systemName: "photo")
+                        .foregroundStyle(.secondary)
+                }
+
+            if isUploading {
+                ProgressView()
+                    .frame(width: width, height: height)
+            }
+
+            if let onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "xmark")
+                }
+                .frame(width: 28, height: 28)
+            }
+        }
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 

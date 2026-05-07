@@ -1,4 +1,5 @@
 import {
+    Attachment01Icon,
     Cancel01Icon,
     Edit01Icon,
     Navigation06Icon,
@@ -413,10 +414,9 @@ export const ChatComposer = memo(
                                 {pendingImages.length > 0 && (
                                     <Box
                                         sx={{
-                                            display: "grid",
-                                            gridTemplateColumns:
-                                                "repeat(2, minmax(0, 1fr))",
-                                            gap: 0.5,
+                                            display: "flex",
+                                            flexWrap: "wrap",
+                                            gap: 1,
                                         }}
                                     >
                                         {pendingImages.map((img) => {
@@ -426,64 +426,68 @@ export const ChatComposer = memo(
                                                 <Box
                                                     key={img.id}
                                                     sx={{
+                                                        position: "relative",
+                                                        width: 76,
+                                                        height: 76,
+                                                        borderRadius: 2,
+                                                        bgcolor: "fill.faint",
+                                                        border: "1px solid",
+                                                        borderColor: "divider",
+                                                        overflow: "hidden",
                                                         display: "flex",
                                                         alignItems: "center",
-                                                        gap: 1,
-                                                        px: 1,
-                                                        py: 0.75,
-                                                        borderRadius: 1.5,
-                                                        bgcolor: "fill.faint",
-                                                        minWidth: 0,
+                                                        justifyContent:
+                                                            "center",
+                                                        color: "text.muted",
+                                                        boxShadow:
+                                                            "0 1px 2px rgba(0, 0, 0, 0.08)",
                                                     }}
                                                 >
-                                                    {preview && (
+                                                    {preview ? (
                                                         <Box
                                                             component="img"
                                                             src={preview}
                                                             alt={img.name}
                                                             sx={{
-                                                                width: 40,
-                                                                height: 40,
-                                                                borderRadius: 1,
+                                                                width: "100%",
+                                                                height: "100%",
                                                                 objectFit:
                                                                     "cover",
+                                                                display:
+                                                                    "block",
                                                             }}
                                                         />
+                                                    ) : (
+                                                        <HugeiconsIcon
+                                                            icon={
+                                                                Attachment01Icon
+                                                            }
+                                                            size={22}
+                                                            strokeWidth={1.7}
+                                                        />
                                                     )}
-                                                    <Box
-                                                        sx={{
-                                                            flex: 1,
-                                                            minWidth: 0,
-                                                        }}
-                                                    >
-                                                        <Typography
-                                                            variant="mini"
-                                                            sx={{
-                                                                color: "text.base",
-                                                                overflow:
-                                                                    "hidden",
-                                                                textOverflow:
-                                                                    "ellipsis",
-                                                                whiteSpace:
-                                                                    "nowrap",
-                                                            }}
-                                                        >
-                                                            {img.name}
-                                                        </Typography>
-                                                        <Typography
-                                                            variant="mini"
-                                                            sx={{
-                                                                color: "text.muted",
-                                                            }}
-                                                        >
-                                                            {formatBytes(
-                                                                img.size,
-                                                            )}
-                                                        </Typography>
-                                                    </Box>
                                                     <IconButton
                                                         aria-label="Remove image"
-                                                        sx={actionButtonSx}
+                                                        sx={{
+                                                            position:
+                                                                "absolute",
+                                                            top: 4,
+                                                            right: 4,
+                                                            width: 24,
+                                                            height: 24,
+                                                            p: 0,
+                                                            borderRadius:
+                                                                "999px",
+                                                            bgcolor:
+                                                                "rgba(0, 0, 0, 0.45)",
+                                                            color: "#fff",
+                                                            backdropFilter:
+                                                                "blur(8px)",
+                                                            "&:hover": {
+                                                                bgcolor:
+                                                                    "rgba(0, 0, 0, 0.6)",
+                                                            },
+                                                        }}
                                                         onClick={() =>
                                                             removePendingImage(
                                                                 img.id,
