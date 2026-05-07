@@ -1088,11 +1088,12 @@ final class ChatViewModel: ObservableObject {
             guard let self else { return }
             do {
                 let id = UUID()
-                let url = try self.writeAttachment(data: data, attachmentId: id)
+                let compressed = try compressAttachmentImage(data: data)
+                let url = try self.writeAttachment(data: compressed, attachmentId: id)
                 let attachment = ChatAttachment(
                     id: id,
-                    name: fileName ?? "photo.jpg",
-                    size: Int64(data.count),
+                    name: self.normalizedJpegAttachmentName(fileName),
+                    size: Int64(compressed.count),
                     kind: .image,
                     url: url,
                     isUploading: false
@@ -1105,6 +1106,19 @@ final class ChatViewModel: ObservableObject {
                 await MainActor.run { self.isProcessingAttachments = false }
             }
         }
+    }
+
+    private nonisolated func normalizedJpegAttachmentName(_ fileName: String?) -> String {
+        let raw = fileName?
+            .replacingOccurrences(of: "\0", with: "")
+            .replacingOccurrences(of: "\\", with: "/")
+            .split(separator: "/")
+            .last
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = raw?.isEmpty == false ? raw! : "photo"
+        let base = (cleaned as NSString).deletingPathExtension
+        return "\(base.isEmpty ? "photo" : base).jpg"
     }
 
     func addDocumentAttachment(url: URL) {
