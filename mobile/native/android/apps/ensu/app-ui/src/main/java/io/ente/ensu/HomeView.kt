@@ -67,6 +67,7 @@ import io.ente.ensu.domain.model.LogEntry
 import io.ente.ensu.domain.state.AppState
 import io.ente.ensu.domain.store.AppStore
 import io.ente.ensu.utils.EnsuFeatureFlags
+import io.ente.labs.ensu_db.compressAttachmentImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -449,25 +450,49 @@ private fun buildAttachmentFromUri(
     val attachmentId = UUID.randomUUID().toString()
     val destination = File(attachmentsDir, attachmentId)
     return runCatching {
-        val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+        val finalName: String
 
-        inputStream.use { input ->
+        if (type == AttachmentType.Image) {
+            val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+            val originalBytes = inputStream.use { input -> input.readBytes() }
+            val compressedBytes = compressAttachmentImage(originalBytes)
             FileOutputStream(destination).use { output ->
-                input.copyTo(output)
+                output.write(compressedBytes)
             }
+            finalName = normalizedJpegAttachmentName(name ?: safeName)
+        } else {
+            val inputStream = resolver.openInputStream(uri) ?: return@runCatching null
+            inputStream.use { input ->
+                FileOutputStream(destination).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            finalName = name ?: safeName
         }
 
         val finalSize = destination.length().takeIf { it > 0 } ?: size ?: 0L
 
         Attachment(
             id = attachmentId,
-            name = name ?: safeName,
+            name = finalName,
             sizeBytes = finalSize,
             type = type,
             localPath = destination.absolutePath,
             isUploading = false
         )
     }.getOrNull()
+}
+
+private fun normalizedJpegAttachmentName(name: String?): String {
+    val raw = name
+        ?.replace("\u0000", "")
+        ?.replace("\\", "/")
+        ?.substringAfterLast("/")
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: "image"
+    val base = raw.substringBeforeLast(".", raw).ifBlank { "image" }
+    return "$base.jpg"
 }
 
 private fun openAttachment(context: Context, attachment: Attachment) {
