@@ -63,6 +63,8 @@ fn main() {
             commands::chat_db_mark_session_deleted,
             commands::chat_db_mark_message_deleted,
             commands::chat_db_mark_attachment_uploaded,
+            commands::chat_db_compress_attachment_image,
+            commands::chat_db_compress_attachment_image_file,
             commands::chat_db_get_pending_deletions,
             commands::chat_db_hard_delete,
             commands::chat_db_reset,

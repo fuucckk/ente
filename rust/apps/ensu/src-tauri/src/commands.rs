@@ -141,6 +141,10 @@ fn fs_thread_error() -> ApiError {
     ApiError::new("io_thread", "FS task failed")
 }
 
+fn image_thread_error() -> ApiError {
+    ApiError::new("image_thread", "Image task failed")
+}
+
 fn replace_llm_state(
     llm_state: &LlmState,
     model: Option<llm::ModelHandleRef>,
@@ -298,6 +302,7 @@ impl From<DbError> for ApiError {
             E::Sqlite(_) => "db_sqlite",
             E::UnsupportedOperation(_) => "db_unsupported_operation",
             E::Migration(_) => "db_migration",
+            E::Image(_) => "db_image",
         };
 
         ApiError::new(code, e.to_string())
@@ -1812,6 +1817,29 @@ fn parse_entity_type(value: &str) -> Result<ensu_db::EntityType, ApiError> {
 
 fn parse_uuid(value: &str) -> Result<Uuid, ApiError> {
     Uuid::parse_str(value).map_err(|err| ApiError::new("uuid", err.to_string()))
+}
+
+#[tauri::command]
+pub async fn chat_db_compress_attachment_image(data: Vec<u8>) -> Result<Vec<u8>, ApiError> {
+    async_runtime::spawn_blocking(move || {
+        ensu_db::compress_attachment_image(&data)
+            .map_err(|err| ApiError::new("image", err.to_string()))
+    })
+    .await
+    .map_err(|_| image_thread_error())?
+}
+
+#[tauri::command]
+pub async fn chat_db_compress_attachment_image_file(path: String) -> Result<Vec<u8>, ApiError> {
+    async_runtime::spawn_blocking(move || {
+        let data = fs::read(&path).map_err(|err| {
+            ApiError::new("io", format!("failed to read image file '{path}': {err}"))
+        })?;
+        ensu_db::compress_attachment_image(&data)
+            .map_err(|err| ApiError::new("image", err.to_string()))
+    })
+    .await
+    .map_err(|_| image_thread_error())?
 }
 
 #[tauri::command]
