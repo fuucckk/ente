@@ -9,29 +9,37 @@ import java.util.Locale
 
 class MediaReviewActivity : FlutterFragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        normalizeReviewIntent(intent)
+        val shouldHandleIntent = normalizeReviewIntent(intent)
         super.onCreate(savedInstanceState)
+        if (!shouldHandleIntent) {
+            finish()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
-        normalizeReviewIntent(intent)
+        val shouldHandleIntent = normalizeReviewIntent(intent)
         super.onNewIntent(intent)
-        setIntent(intent)
+        if (shouldHandleIntent) {
+            setIntent(intent)
+        } else {
+            finish()
+        }
     }
 
-    private fun normalizeReviewIntent(intent: Intent?) {
-        val reviewIntent = intent ?: return
+    private fun normalizeReviewIntent(intent: Intent?): Boolean {
+        val reviewIntent = intent ?: return false
         if (reviewIntent.action !in reviewActions) {
-            return
+            return true
         }
-        val uri = reviewIntent.data ?: reviewIntent.streamUri
-        val type = reviewIntent.type ?: uri?.let { resolveMimeType(it) }
+        val uri = reviewIntent.data ?: reviewIntent.streamUri ?: return false
+        val type = reviewIntent.type ?: resolveMimeType(uri) ?: return false
+        if (!type.isSupportedReviewMimeType()) {
+            return false
+        }
+
         reviewIntent.action = Intent.ACTION_VIEW
-        if (uri != null && type != null) {
-            reviewIntent.setDataAndType(uri, type)
-        } else if (uri != null) {
-            reviewIntent.data = uri
-        }
+        reviewIntent.setDataAndType(uri, type)
+        return true
     }
 
     private fun resolveMimeType(uri: Uri): String? {
@@ -55,6 +63,12 @@ class MediaReviewActivity : FlutterFragmentActivity() {
             ?.takeIf { it.isNotBlank() }
             ?: return null
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+    }
+
+    private fun String.isSupportedReviewMimeType(): Boolean {
+        val normalizedType = lowercase(Locale.ROOT)
+        return normalizedType.startsWith("image/") ||
+            normalizedType.startsWith("video/")
     }
 
     private val Intent.streamUri: Uri?
