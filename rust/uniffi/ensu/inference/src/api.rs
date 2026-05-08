@@ -46,7 +46,6 @@ pub struct EnsuModelPreset {
     pub title: String,
     pub url: String,
     pub mmproj_url: Option<String>,
-    pub image_inference_max_long_edge: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
@@ -90,8 +89,6 @@ pub struct GenerateChatRequest {
     pub image_paths: Option<Vec<String>>,
     pub mmproj_path: Option<String>,
     pub media_marker: Option<String>,
-    pub image_inference_max_long_edge: Option<i32>,
-    pub image_inference_cache_dir: Option<String>,
     pub max_tokens: Option<i32>,
     pub temperature: Option<f32>,
     pub top_p: Option<f32>,
@@ -184,7 +181,6 @@ impl From<core::EnsuModelPreset> for EnsuModelPreset {
             title: value.title,
             url: value.url,
             mmproj_url: value.mmproj_url,
-            image_inference_max_long_edge: value.image_inference_max_long_edge,
         }
     }
 }
@@ -248,8 +244,6 @@ impl From<GenerateChatRequest> for core::GenerateChatRequest {
             image_paths: value.image_paths,
             mmproj_path: value.mmproj_path,
             media_marker: value.media_marker,
-            image_inference_max_long_edge: value.image_inference_max_long_edge,
-            image_inference_cache_dir: value.image_inference_cache_dir,
             max_tokens: value.max_tokens,
             temperature: value.temperature,
             top_p: value.top_p,

@@ -6,7 +6,6 @@ pub struct EnsuModelPreset {
     pub title: String,
     pub url: String,
     pub mmproj_url: Option<String>,
-    pub image_inference_max_long_edge: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +34,6 @@ fn lfm_vl_1_6b() -> EnsuModelPreset {
             "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf"
                 .to_string(),
         ),
-        image_inference_max_long_edge: Some(512),
     }
 }
 
@@ -45,7 +43,6 @@ fn lfm_1_2b() -> EnsuModelPreset {
         title: "LFM 2.5 1.2B Instruct (Q4_0)".to_string(),
         url: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-GGUF/resolve/main/LFM2.5-1.2B-Q4_0.gguf?download=true".to_string(),
         mmproj_url: None,
-        image_inference_max_long_edge: None,
     }
 }
 
@@ -58,7 +55,6 @@ fn qwen_0_8b() -> EnsuModelPreset {
             "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf"
                 .to_string(),
         ),
-        image_inference_max_long_edge: Some(768),
     }
 }
 
@@ -71,7 +67,6 @@ fn qwen_2b_q8() -> EnsuModelPreset {
             "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf"
                 .to_string(),
         ),
-        image_inference_max_long_edge: Some(768),
     }
 }
 
@@ -84,7 +79,6 @@ fn qwen_4b_q4km() -> EnsuModelPreset {
             "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf"
                 .to_string(),
         ),
-        image_inference_max_long_edge: Some(768),
     }
 }
 
@@ -97,7 +91,6 @@ fn gemma_4_e4b_q4km() -> EnsuModelPreset {
             "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/mmproj-F16.gguf"
                 .to_string(),
         ),
-        image_inference_max_long_edge: Some(512),
     }
 }
 

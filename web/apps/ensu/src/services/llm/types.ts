@@ -15,7 +15,6 @@ export interface ModelInfo {
     mmprojSizeBytes?: number;
     contextLength?: number;
     maxTokens?: number;
-    imageInferenceMaxLongEdge?: number;
 }
 
 export interface ModelSettings {
@@ -52,8 +51,6 @@ export interface GenerateChatRequest {
     imagePaths?: string[];
     mmprojPath?: string;
     mediaMarker?: string;
-    imageInferenceMaxLongEdge?: number;
-    imageInferenceCacheDir?: string;
     maxTokens?: number;
     temperature?: number;
     topP?: number;

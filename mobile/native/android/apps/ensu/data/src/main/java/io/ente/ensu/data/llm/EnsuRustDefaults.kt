@@ -27,6 +27,5 @@ private fun io.ente.labs.inference_rs.EnsuModelPreset.toDomain(): EnsuModelPrese
         id = id,
         title = title,
         url = url,
-        mmprojUrl = mmprojUrl,
-        imageInferenceMaxLongEdge = imageInferenceMaxLongEdge
+        mmprojUrl = mmprojUrl
     )

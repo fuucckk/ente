@@ -1,4 +1,3 @@
-use ente_image::{decode::decode_image_from_bytes, image_compression::compress_decoded_to_jpeg};
 use llama_cpp_2::TokenToStringError;
 use llama_cpp_2::context::LlamaContext;
 use llama_cpp_2::context::params::LlamaContextParams;
@@ -14,14 +13,11 @@ use llama_cpp_2::token::LlamaToken;
 use parking_lot::Mutex;
 use self_cell::self_cell;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::fmt::Write as _;
-use std::fs;
 use std::num::NonZeroU32;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
@@ -47,8 +43,6 @@ static CANCEL_FLAGS: OnceLock<Mutex<HashMap<JobId, Arc<AtomicBool>>>> = OnceLock
 
 const CANCEL_MESSAGE: &str = "Generation cancelled";
 const DEFAULT_GENERATION_MAX_TOKENS: i32 = 8_192;
-const IMAGE_INFERENCE_CACHE_VERSION: u8 = 1;
-const IMAGE_INFERENCE_JPEG_QUALITY: u8 = 95;
 
 fn backend() -> Result<&'static LlamaBackend, String> {
     match BACKEND.get_or_init(|| LlamaBackend::init().map_err(|err| err.to_string())) {
@@ -500,8 +494,6 @@ pub struct GenerateChatRequest {
     pub image_paths: Option<Vec<String>>,
     pub mmproj_path: Option<String>,
     pub media_marker: Option<String>,
-    pub image_inference_max_long_edge: Option<i32>,
-    pub image_inference_cache_dir: Option<String>,
     pub max_tokens: Option<i32>,
     pub temperature: Option<f32>,
     pub top_p: Option<f32>,
@@ -825,122 +817,6 @@ pub fn prewarm_multimodal_context(
     })
 }
 
-fn prepare_image_paths_for_inference(
-    image_paths: Vec<String>,
-    image_inference_max_long_edge: Option<i32>,
-    image_inference_cache_dir: Option<String>,
-    job_id: JobId,
-    cancel_flag: &AtomicBool,
-) -> Result<Vec<String>, String> {
-    let Some(max_long_edge) = image_inference_max_long_edge else {
-        return Ok(image_paths);
-    };
-
-    let max_long_edge = u32::try_from(max_long_edge)
-        .map_err(|_| "image_inference_max_long_edge must be greater than zero".to_string())?;
-    if max_long_edge == 0 {
-        return Err("image_inference_max_long_edge must be greater than zero".to_string());
-    }
-
-    let cache_dir = image_inference_cache_dir
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::temp_dir().join("ensu_image_inference_cache"));
-    fs::create_dir_all(&cache_dir).map_err(|err| {
-        format!(
-            "Failed to create image inference cache at {}: {err}",
-            cache_dir.display()
-        )
-    })?;
-
-    let mut prepared_paths = Vec::with_capacity(image_paths.len());
-    for (index, image_path) in image_paths.into_iter().enumerate() {
-        check_cancelled(cancel_flag)?;
-        prepared_paths.push(prepare_image_path_for_inference(
-            image_path,
-            max_long_edge,
-            &cache_dir,
-            job_id,
-            index,
-        )?);
-    }
-
-    Ok(prepared_paths)
-}
-
-fn prepare_image_path_for_inference(
-    image_path: String,
-    max_long_edge: u32,
-    cache_dir: &Path,
-    job_id: JobId,
-    index: usize,
-) -> Result<String, String> {
-    if !Path::new(&image_path).exists() {
-        return Err(format!("Image file not found at {image_path}"));
-    }
-
-    let image_bytes = fs::read(&image_path)
-        .map_err(|err| format!("Failed to read image file {image_path}: {err}"))?;
-    let cache_path = inference_image_cache_path(cache_dir, &image_bytes, max_long_edge);
-    if cache_path.exists() {
-        return path_buf_to_string(cache_path);
-    }
-
-    let decoded = decode_image_from_bytes(&image_bytes)
-        .map_err(|err| format!("Failed to decode image for inference preprocessing: {err}"))?;
-    let long_edge = decoded.dimensions.width.max(decoded.dimensions.height);
-    if long_edge <= max_long_edge {
-        return Ok(image_path);
-    }
-
-    let encoded = compress_decoded_to_jpeg(&decoded, max_long_edge, IMAGE_INFERENCE_JPEG_QUALITY)
-        .map_err(|err| format!("Failed to resize image for inference: {err}"))?;
-    let tmp_path = cache_path.with_extension(format!("jpg.{job_id}.{index}.tmp"));
-    fs::write(&tmp_path, encoded).map_err(|err| {
-        format!(
-            "Failed to write image inference cache file {}: {err}",
-            tmp_path.display()
-        )
-    })?;
-
-    if let Err(err) = fs::rename(&tmp_path, &cache_path) {
-        if cache_path.exists() {
-            let _ = fs::remove_file(&tmp_path);
-        } else {
-            return Err(format!(
-                "Failed to finalize image inference cache file {}: {err}",
-                cache_path.display()
-            ));
-        }
-    }
-
-    path_buf_to_string(cache_path)
-}
-
-fn inference_image_cache_path(cache_dir: &Path, image_bytes: &[u8], max_long_edge: u32) -> PathBuf {
-    let mut hasher = Sha256::new();
-    hasher.update([IMAGE_INFERENCE_CACHE_VERSION]);
-    hasher.update(max_long_edge.to_le_bytes());
-    hasher.update([IMAGE_INFERENCE_JPEG_QUALITY]);
-    hasher.update(image_bytes);
-    let digest = hasher.finalize();
-
-    let mut hex_digest = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        let _ = write!(&mut hex_digest, "{byte:02x}");
-    }
-
-    cache_dir.join(format!(
-        "v{}_{}_q{}_{}.jpg",
-        IMAGE_INFERENCE_CACHE_VERSION, max_long_edge, IMAGE_INFERENCE_JPEG_QUALITY, hex_digest
-    ))
-}
-
-fn path_buf_to_string(path: PathBuf) -> Result<String, String> {
-    path.into_os_string()
-        .into_string()
-        .map_err(|_| "Image inference cache path is not valid UTF-8".to_string())
-}
-
 pub fn generate_chat_stream(
     context: &ContextHandle,
     request: GenerateChatRequest,
@@ -953,8 +829,6 @@ pub fn generate_chat_stream(
         image_paths,
         mmproj_path,
         media_marker,
-        image_inference_max_long_edge,
-        image_inference_cache_dir,
         max_tokens,
         temperature,
         top_p,
@@ -989,7 +863,7 @@ pub fn generate_chat_stream(
         context.with_context_mut(|ctx| -> Result<(), String> {
             let add_assistant = add_assistant.unwrap_or(true);
             let mut messages = messages;
-            let mut image_paths = image_paths.unwrap_or_default();
+            let image_paths = image_paths.unwrap_or_default();
             let marker = media_marker
                 .clone()
                 .unwrap_or_else(|| mtmd_default_marker().to_string());
@@ -1114,14 +988,6 @@ pub fn generate_chat_stream(
                 "mmproj_path is required when image_paths are provided".to_string()
             })?;
             let mtmd_ctx = context.cached_mtmd_context(ctx.model, &mmproj_path, &marker)?;
-
-            image_paths = prepare_image_paths_for_inference(
-                image_paths,
-                image_inference_max_long_edge,
-                image_inference_cache_dir,
-                job_id,
-                &cancel_flag,
-            )?;
 
             let mut bitmaps = Vec::with_capacity(image_paths.len());
             for image_path in &image_paths {
@@ -1366,15 +1232,7 @@ pub fn cancel(job_id: JobId) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::sync::atomic::AtomicBool;
-
-    use ente_image::{
-        decode::decode_image_from_bytes,
-        image_compression::{EncodedImageFormat, encode_rgb},
-    };
-
-    use super::{StreamDecoder, prepare_image_paths_for_inference};
+    use super::StreamDecoder;
 
     #[test]
     fn stream_decoder_emits_complete_utf8() {
@@ -1386,61 +1244,5 @@ mod tests {
         let step = decoder.push_bytes(&[0x99, 0x82]);
         assert_eq!(step.text.as_deref(), Some("🙂"));
         assert!(!step.stop);
-    }
-
-    #[test]
-    fn prepare_image_paths_for_inference_resizes_and_caches_large_images() {
-        let dir = tempfile::tempdir().expect("temp dir");
-        let source_path = dir.path().join("source.jpg");
-        let cache_dir = dir.path().join("cache");
-        let rgb = vec![180; 1200 * 600 * 3];
-        let source_bytes = encode_rgb(&rgb, 1200, 600, EncodedImageFormat::Jpeg { quality: 85 })
-            .expect("source image should encode");
-        fs::write(&source_path, source_bytes).expect("source image should write");
-
-        let cancel_flag = AtomicBool::new(false);
-        let prepared = prepare_image_paths_for_inference(
-            vec![source_path.to_string_lossy().to_string()],
-            Some(512),
-            Some(cache_dir.to_string_lossy().to_string()),
-            7,
-            &cancel_flag,
-        )
-        .expect("image should preprocess");
-
-        assert_ne!(prepared[0], source_path.to_string_lossy());
-        let output = fs::read(&prepared[0]).expect("prepared image should exist");
-        let decoded = decode_image_from_bytes(&output).expect("prepared image should decode");
-        assert_eq!(decoded.dimensions.width, 512);
-        assert_eq!(decoded.dimensions.height, 256);
-
-        let prepared_again = prepare_image_paths_for_inference(
-            vec![source_path.to_string_lossy().to_string()],
-            Some(512),
-            Some(cache_dir.to_string_lossy().to_string()),
-            8,
-            &cancel_flag,
-        )
-        .expect("cached image should be reused");
-        assert_eq!(prepared, prepared_again);
-    }
-
-    #[test]
-    fn prepare_image_paths_for_inference_leaves_uncapped_images_unchanged() {
-        let dir = tempfile::tempdir().expect("temp dir");
-        let source_path = dir.path().join("source.jpg");
-        fs::write(&source_path, [1, 2, 3]).expect("source file should write");
-
-        let cancel_flag = AtomicBool::new(false);
-        let prepared = prepare_image_paths_for_inference(
-            vec![source_path.to_string_lossy().to_string()],
-            None,
-            None,
-            7,
-            &cancel_flag,
-        )
-        .expect("uncapped image paths should pass through");
-
-        assert_eq!(prepared, vec![source_path.to_string_lossy().to_string()]);
     }
 }

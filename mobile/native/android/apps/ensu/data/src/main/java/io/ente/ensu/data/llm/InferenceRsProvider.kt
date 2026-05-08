@@ -75,7 +75,6 @@ class InferenceRsProvider(
         appContext.getSystemService(DownloadManager::class.java)
     private val downloadPrefs =
         appContext.getSharedPreferences("ensu.system.downloads", Context.MODE_PRIVATE)
-    private val imageInferenceCacheDir = File(modelDir, "image-inference-cache")
     private val json = Json { ignoreUnknownKeys = true }
 
     @Volatile private var modelHandle: ModelHandle? = null
@@ -93,7 +92,6 @@ class InferenceRsProvider(
     init {
         uniffiEnsureInitialized()
         modelDir.mkdirs()
-        imageInferenceCacheDir.mkdirs()
     }
 
     override suspend fun ensureModelReady(
@@ -133,8 +131,6 @@ class InferenceRsProvider(
             imagePaths = imageFiles.map { it.absolutePath },
             mmprojPath = mmprojPath,
             mediaMarker = null,
-            imageInferenceMaxLongEdge = target.imageInferenceMaxLongEdge,
-            imageInferenceCacheDir = if (imageFiles.isEmpty()) null else imageInferenceCacheDir.absolutePath,
             maxTokens = maxTokens,
             temperature = clampedTemperature,
             topP = 0.9f,

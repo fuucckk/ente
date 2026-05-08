@@ -120,7 +120,6 @@ struct InferenceModelTarget: Equatable {
     let mmprojUrl: String?
     let contextLength: Int?
     let maxTokens: Int?
-    let imageInferenceMaxLongEdge: Int?
 }
 
 struct InferenceDownloadProgress: Equatable {
@@ -226,8 +225,7 @@ final class ModelSettingsStore: ObservableObject {
             url: "",
             mmprojUrl: nil,
             contextLength: context,
-            maxTokens: maxOutput,
-            imageInferenceMaxLongEdge: nil
+            maxTokens: maxOutput
         )
     }
 }

@@ -359,28 +359,15 @@ internal class ModelSettingsActions(
         val contextLength = settings.contextLength.toIntOrNull()
         val maxTokens = settings.maxTokens.toIntOrNull()?.takeIf { it > 0 }
         val id = if (useCustom) "custom:${url.hashCode()}" else "default:${url.hashCode()}"
-        val imageInferenceMaxLongEdge = if (useCustom) {
-            knownModelPresets()
-                .firstOrNull { it.url == url }
-                ?.imageInferenceMaxLongEdge
-        } else {
-            ensuDefaults.mobileDefaultModel.imageInferenceMaxLongEdge
-        }
 
         return LlmModelTarget(
             id = id,
             url = url,
             mmprojUrl = mmproj,
             contextLength = contextLength,
-            maxTokens = maxTokens,
-            imageInferenceMaxLongEdge = imageInferenceMaxLongEdge
+            maxTokens = maxTokens
         )
     }
-
-    private fun knownModelPresets() = listOf(
-        ensuDefaults.mobileDefaultModel,
-        ensuDefaults.desktopDefaultModel
-    ) + ensuDefaults.mobileModelPresets + ensuDefaults.desktopModelPresets
 
     fun resolveTemperature(settings: ModelSettingsState): Float {
         val temperature = settings.temperature.trim().toFloatOrNull()

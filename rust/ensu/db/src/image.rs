@@ -2,7 +2,7 @@ use ente_image::image_compression::compress_image_bytes_to_jpeg;
 
 use crate::Result;
 
-pub const ATTACHMENT_IMAGE_MAX_LONG_EDGE: u32 = 1080;
+pub const ATTACHMENT_IMAGE_MAX_LONG_EDGE: u32 = 512;
 pub const ATTACHMENT_IMAGE_JPEG_QUALITY: u8 = 85;
 
 pub fn compress_attachment_image(image_bytes: &[u8]) -> Result<Vec<u8>> {
@@ -34,7 +34,7 @@ mod tests {
         let decoded = decode_image_from_bytes(&output).expect("output should decode");
 
         assert_eq!(decoded.dimensions.width, ATTACHMENT_IMAGE_MAX_LONG_EDGE);
-        assert_eq!(decoded.dimensions.height, 540);
+        assert_eq!(decoded.dimensions.height, 256);
         assert!(output.len() < input.len());
     }
 

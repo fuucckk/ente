@@ -771,9 +771,6 @@ const buildGenerateChatRequest = (request: GenerateChatRequest) => ({
     image_paths: request.imagePaths ?? null,
     mmproj_path: request.mmprojPath ?? null,
     media_marker: request.mediaMarker ?? null,
-    image_inference_max_long_edge:
-        request.imageInferenceMaxLongEdge ?? null,
-    image_inference_cache_dir: request.imageInferenceCacheDir ?? null,
     max_tokens: request.maxTokens ?? null,
     temperature: request.temperature ?? null,
     top_p: request.topP ?? null,

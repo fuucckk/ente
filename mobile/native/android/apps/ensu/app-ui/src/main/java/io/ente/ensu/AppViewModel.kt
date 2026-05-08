@@ -161,74 +161,58 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             id = "lfm-vl-1.6b",
             title = "LFM 2.5 VL 1.6B (Q4_0)",
             url = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/LFM2.5-VL-1.6B-Q4_0.gguf?download=true",
-            mmprojUrl = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf",
-            imageInferenceMaxLongEdge = 512
+            mmprojUrl = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf"
         ),
         mobileModelPresets = listOf(
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "lfm-1.2b",
                 title = "LFM 2.5 1.2B Instruct (Q4_0)",
                 url = "https://huggingface.co/LiquidAI/LFM2.5-1.2B-GGUF/resolve/main/LFM2.5-1.2B-Q4_0.gguf?download=true",
-                mmprojUrl = null,
-                imageInferenceMaxLongEdge = null
+                mmprojUrl = null
             ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "qwen-0.8b",
                 title = "Qwen 3.5 0.8B (Q4_K_M)",
                 url = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf",
-                imageInferenceMaxLongEdge = 768
+                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf"
             ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "qwen-2b-q8",
                 title = "Qwen 3.5 2B (Q8_0)",
                 url = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q8_0.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf",
-                imageInferenceMaxLongEdge = 768
+                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf"
             )
         ),
         desktopDefaultModel = io.ente.ensu.domain.model.EnsuModelPreset(
-            id = "gemma-4-e4b-q4km",
-            title = "Gemma 4 E4B (Q4_K_M)",
-            url = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf?download=true",
-            mmprojUrl = "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/mmproj-F16.gguf",
-            imageInferenceMaxLongEdge = 512
+            id = "qwen-4b-q4km",
+            title = "Qwen 3.5 4B (Q4_K_M)",
+            url = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf?download=true",
+            mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf"
         ),
         desktopModelPresets = listOf(
-            io.ente.ensu.domain.model.EnsuModelPreset(
-                id = "qwen-4b-q4km",
-                title = "Qwen 3.5 4B (Q4_K_M)",
-                url = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf",
-                imageInferenceMaxLongEdge = 768
-            ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "lfm-vl-1.6b",
                 title = "LFM 2.5 VL 1.6B (Q4_0)",
                 url = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/LFM2.5-VL-1.6B-Q4_0.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf",
-                imageInferenceMaxLongEdge = 512
+                mmprojUrl = "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf"
             ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "lfm-1.2b",
                 title = "LFM 2.5 1.2B Instruct (Q4_0)",
                 url = "https://huggingface.co/LiquidAI/LFM2.5-1.2B-GGUF/resolve/main/LFM2.5-1.2B-Q4_0.gguf?download=true",
-                mmprojUrl = null,
-                imageInferenceMaxLongEdge = null
+                mmprojUrl = null
             ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "qwen-0.8b",
                 title = "Qwen 3.5 0.8B (Q4_K_M)",
                 url = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf",
-                imageInferenceMaxLongEdge = 768
+                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf"
             ),
             io.ente.ensu.domain.model.EnsuModelPreset(
                 id = "qwen-2b-q8",
                 title = "Qwen 3.5 2B (Q8_0)",
                 url = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q8_0.gguf?download=true",
-                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf",
-                imageInferenceMaxLongEdge = 768
+                mmprojUrl = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf"
             )
         )
     )

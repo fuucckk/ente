@@ -66,20 +66,7 @@ final class ModelSettingsStore: ObservableObject {
         let context = Int(contextLength)
         let maxOutput = Int(maxTokens).flatMap { $0 > 0 ? $0 : nil }
         let id = useCustom ? "custom:\(url)" : "default"
-        let imageInferenceMaxLongEdge: Int?
-        if useCustom {
-            imageInferenceMaxLongEdge = Self.knownModelPresets.first { $0.url == url }?.imageInferenceMaxLongEdge
-        } else {
-            imageInferenceMaxLongEdge = defaultModel.imageInferenceMaxLongEdge
-        }
-        return InferenceModelTarget(
-            id: id,
-            url: url,
-            mmprojUrl: mmproj,
-            contextLength: context,
-            maxTokens: maxOutput,
-            imageInferenceMaxLongEdge: imageInferenceMaxLongEdge
-        )
+        return InferenceModelTarget(id: id, url: url, mmprojUrl: mmproj, contextLength: context, maxTokens: maxOutput)
     }
 
     static var defaultModelName: String { platformDefaultModel.title }
@@ -107,14 +94,6 @@ final class ModelSettingsStore: ObservableObject {
             return EnsuRustDefaults.shared.mobileDefaultModel
         }
         #endif
-    }
-
-    private static var knownModelPresets: [EnsuRustModelPreset] {
-        let defaults = EnsuRustDefaults.shared
-        return [
-            defaults.mobileDefaultModel,
-            defaults.desktopDefaultModel,
-        ] + defaults.mobileModelPresets + defaults.desktopModelPresets
     }
 
     private static var platformSystemPromptBody: String {
