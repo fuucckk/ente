@@ -346,9 +346,12 @@ Future<bool> deleteLocalFiles(
   final List<String> localAssetIDs = [];
   final List<String> localSharedMediaIDs = [];
 
-  // Keep large platform asset deletes in smaller batches. Android 11+ routes this
-  // through MediaStore.createDeleteRequest, where our target SDK has a 2000 URI
-  // cap, and smaller batches are also safer for large iOS Photos deletes.
+  // Keep large platform asset deletes in smaller batches. Shared-media sandbox
+  // IDs are deleted separately above, and only platform asset IDs are sent to
+  // PhotoManager.editor.deleteWithIds. Android 11+ routes those IDs through
+  // MediaStore.createDeleteRequest, where our target SDK has a 2000 URI cap:
+  // https://developer.android.com/reference/android/provider/MediaStore#createDeleteRequest(android.content.ContentResolver,%20java.util.Collection%3Candroid.net.Uri%3E)
+  // Smaller batches are also safer for large iOS Photos deletes.
   const largeCountThreshold = 1900;
   try {
     for (String id in localIDs) {
@@ -662,6 +665,8 @@ Future<void> _recursivelyReduceBatchSizeAndRetryDeletion({
   required List<String> deletedIDs,
   int minimumBatchSizeThresholdToStopRetry = 1900,
 }) async {
+  // TODO: Revisit whether this recursive retry is still needed. The batch
+  // helper already falls back to single-ID deletes when a batch fails.
   if (batchSize < minimumBatchSizeThresholdToStopRetry) {
     _logger.warning(
       "Batch size is too small ($batchSize), stopping further retries.",
