@@ -348,6 +348,7 @@ class _TextOverlayWidgetState extends State<TextOverlayWidget> {
   @override
   Widget build(BuildContext context) {
     return Stack(
+      clipBehavior: Clip.none,
       fit: StackFit.expand,
       children: [
         _buildInteractiveImage(),
@@ -374,6 +375,7 @@ class _TextOverlayWidgetState extends State<TextOverlayWidget> {
           panEnabled: _isPanEnabled,
           scaleEnabled: true,
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
               Center(
                 child: Image.file(
@@ -443,9 +445,11 @@ class _TextOverlayWidgetState extends State<TextOverlayWidget> {
         final Widget visualLayer = KeyedSubtree(
           key: _interactiveViewerKey,
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
               IgnorePointer(
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     const SizedBox.expand(),
                     ..._buildEditableBlockOverlays(),
@@ -492,6 +496,7 @@ class _TextOverlayWidgetState extends State<TextOverlayWidget> {
         );
 
         return Stack(
+          clipBehavior: Clip.none,
           children: [
             visualLayer,
             gestureLayer,
@@ -1141,51 +1146,50 @@ class _TextOverlayWidgetState extends State<TextOverlayWidget> {
           ),
         ],
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextButton(
+            style: TextButton.styleFrom(
+              alignment: Alignment.center,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(64, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(8),
                 ),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.horizontal(
-                    left: Radius.circular(8),
-                  ),
-                ),
-              ),
-              onPressed: _copySelectedText,
-              child: Text(
-                localizations.copyButtonLabel,
-                style: buttonTextStyle,
               ),
             ),
-            Container(width: 1, color: Colors.white.withValues(alpha: 0.2)),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
+            onPressed: _copySelectedText,
+            child: Text(
+              localizations.copyButtonLabel,
+              style: buttonTextStyle,
+            ),
+          ),
+          Container(width: 1, color: Colors.white.withValues(alpha: 0.2)),
+          TextButton(
+            style: TextButton.styleFrom(
+              alignment: Alignment.center,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(64, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.horizontal(
+                  right: Radius.circular(8),
                 ),
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.horizontal(
-                    right: Radius.circular(8),
-                  ),
-                ),
-              ),
-              onPressed: _selectAllText,
-              child: Text(
-                localizations.selectAllButtonLabel,
-                style: buttonTextStyle,
               ),
             ),
-          ],
-        ),
+            onPressed: _selectAllText,
+            child: Text(
+              localizations.selectAllButtonLabel,
+              style: buttonTextStyle,
+            ),
+          ),
+        ],
       ),
     );
 
