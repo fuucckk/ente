@@ -318,11 +318,7 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
         allShares: shares,
       );
       await dialog.hide();
-      final result = await _sharePdf(bytes, _kit, part: part);
-      if (!mounted || result.status != ShareResultStatus.unavailable) {
-        return;
-      }
-      showShortToast(context, context.strings.somethingWentWrong);
+      await _sharePdf(bytes, _kit, part: part);
     } catch (_) {
       await dialog.hide();
       if (mounted) {
