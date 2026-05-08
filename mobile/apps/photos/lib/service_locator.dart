@@ -2,7 +2,6 @@ import "package:dio/dio.dart";
 import "package:ente_cast/ente_cast.dart";
 import "package:ente_feature_flag/ente_feature_flag.dart";
 import "package:package_info_plus/package_info_plus.dart";
-import "package:photos/app_mode.dart";
 import "package:photos/core/configuration.dart";
 import "package:photos/gateways/billing/billing_gateway.dart";
 import "package:photos/gateways/collections/collection_files_gateway.dart";
@@ -95,7 +94,7 @@ LocalSettings get localSettings {
 ///
 /// This does not mean the device is offline. It means the active gallery mode is
 /// local-device focused rather than Ente-account focused.
-bool get isLocalGalleryMode => localSettings.appMode == AppMode.localGallery;
+bool get isLocalGalleryMode => localSettings.isLocalGalleryMode;
 
 bool get hasGrantedMLConsent {
   if (isLocalGalleryMode) {
