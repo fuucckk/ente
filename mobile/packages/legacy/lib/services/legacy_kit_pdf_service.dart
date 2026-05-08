@@ -381,7 +381,7 @@ class LegacyKitPdfService {
   ) {
     return pw.Container(
       width: 592,
-      height: 378,
+      height: 429,
       padding: const pw.EdgeInsets.all(24),
       decoration: const pw.BoxDecoration(
         color: _dark,
@@ -391,7 +391,7 @@ class LegacyKitPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.SizedBox(
-            width: 201,
+            width: 242,
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
@@ -408,7 +408,7 @@ class LegacyKitPdfService {
                     data: qrPayload,
                   ),
                 ),
-                pw.SizedBox(height: 8),
+                pw.SizedBox(height: 6),
                 pw.Text(
                   "OR",
                   style: pw.TextStyle(
@@ -421,11 +421,11 @@ class LegacyKitPdfService {
                   "copy code text",
                   style: const pw.TextStyle(color: _lightText, fontSize: 12),
                 ),
-                pw.SizedBox(height: 10),
+                pw.SizedBox(height: 6),
                 pw.Container(
-                  width: 201,
-                  height: 75,
-                  padding: const pw.EdgeInsets.all(10),
+                  width: 242,
+                  height: 126,
+                  padding: const pw.EdgeInsets.all(12),
                   decoration: pw.BoxDecoration(
                     color: _green,
                     border: pw.Border.all(
@@ -442,9 +442,9 @@ class LegacyKitPdfService {
                       textAlign: pw.TextAlign.center,
                       style: pw.TextStyle(
                         color: _background,
-                        fontSize: copyCode.length > 220 ? 5.5 : 6.5,
+                        fontSize: 10,
                         fontWeight: pw.FontWeight.bold,
-                        lineSpacing: 1,
+                        lineSpacing: 3,
                       ),
                     ),
                   ),
@@ -452,9 +452,9 @@ class LegacyKitPdfService {
               ],
             ),
           ),
-          pw.SizedBox(width: 28),
+          pw.Spacer(),
           pw.SizedBox(
-            width: 291,
+            width: 266,
             child: pw.Column(
               mainAxisAlignment: pw.MainAxisAlignment.center,
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -463,15 +463,22 @@ class LegacyKitPdfService {
                   "1.",
                   "Get one other sheet. The other holders are:",
                   extra: _holderChips(otherShares),
+                  bottomPadding: 24,
                 ),
                 _instruction(
                   "2.",
                   "Go to ${displayRecoveryUrl(recoveryUrl)} and click Start recovery",
+                  bottomPadding: 24,
                 ),
-                _instruction("3.", "Scan the QR codes from both sheets"),
+                _instruction(
+                  "3.",
+                  "Scan the QR codes from both sheets",
+                  bottomPadding: 24,
+                ),
                 _instruction(
                   "4.",
                   "Wait through the recovery period (if one is set).",
+                  bottomPadding: 24,
                 ),
                 _instruction(
                   "5.",
