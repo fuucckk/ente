@@ -44,17 +44,7 @@ class LegacyKitPage extends StatefulWidget {
 
 class _LegacyKitPageState extends State<LegacyKitPage> {
   late LegacyKit _kit = widget.kit;
-  bool _loadingRecoveryDetails = false;
   bool _updatingNotice = false;
-  LegacyKitOwnerRecoverySessionDetails? _recoveryDetails;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_kit.hasActiveRecoverySession) {
-      _loadRecoveryDetails();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,9 +82,6 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
                   const SizedBox(height: 20),
                   _RecoveryBanner(
                     session: _kit.activeRecoverySession!,
-                    parts: _kit.parts,
-                    loadingDetails: _loadingRecoveryDetails,
-                    details: _recoveryDetails,
                     onBlockRecovery: _blockRecovery,
                   ),
                 ],
@@ -186,31 +173,6 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
     return colors[index % colors.length];
   }
 
-  Future<void> _loadRecoveryDetails() async {
-    setState(() {
-      _loadingRecoveryDetails = true;
-    });
-    try {
-      final details =
-          await LegacyKitService.instance.getRecoverySession(_kit.id);
-      if (mounted) {
-        setState(() {
-          _recoveryDetails = details;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        showShortToast(context, context.strings.somethingWentWrong);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingRecoveryDetails = false;
-        });
-      }
-    }
-  }
-
   Future<void> _editRecoveryWaitTime() async {
     final selectedDays = await showLegacyKitRecoveryWaitTimeSheet(
       context,
@@ -296,9 +258,6 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
     if (current != null && mounted) {
       setState(() {
         _kit = current;
-        if (!_kit.hasActiveRecoverySession) {
-          _recoveryDetails = null;
-        }
       });
     }
   }
@@ -506,7 +465,6 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
       if (current != null && mounted) {
         setState(() {
           _kit = current;
-          _recoveryDetails = null;
         });
       }
       widget.onChanged?.call();
@@ -607,16 +565,10 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
 
 class _RecoveryBanner extends StatelessWidget {
   final LegacyKitRecoverySession session;
-  final List<LegacyKitPart> parts;
-  final bool loadingDetails;
-  final LegacyKitOwnerRecoverySessionDetails? details;
   final VoidCallback onBlockRecovery;
 
   const _RecoveryBanner({
     required this.session,
-    required this.parts,
-    required this.loadingDetails,
-    required this.details,
     required this.onBlockRecovery,
   });
 
@@ -626,9 +578,6 @@ class _RecoveryBanner extends StatelessWidget {
     final textTheme = getEnteTextTheme(context);
     final createdAt = _formatDateTime(session.createdAt);
     final waitTill = _formatWaitRemaining(session.waitTill);
-    final attemptSummaries = details == null
-        ? const <_RecoveryAttemptSummary>[]
-        : _summarizeAttempts(details!.initiators);
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -648,44 +597,6 @@ class _RecoveryBanner extends StatelessWidget {
             context.strings.legacyKitRecoveryWindow(createdAt, waitTill),
             style: textTheme.smallMuted,
           ),
-          if (!loadingDetails && details != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              context.strings.legacyKitRecoveryAuditHints(
-                details!.initiators.length,
-              ),
-              style: textTheme.smallMuted,
-            ),
-            if (attemptSummaries.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ...attemptSummaries.map(
-                (summary) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${summary.sheetNames} • ${_formatAttemptCount(summary.attemptCount)}",
-                        style: textTheme.miniMuted,
-                      ),
-                      Text(
-                        "Latest IP: ${summary.latestIP}",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.miniMuted,
-                      ),
-                      Text(
-                        "Latest UA: ${summary.latestUserAgent}",
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.miniMuted,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
           const SizedBox(height: 14),
           GradientButton(
             text: context.strings.rejectRecovery,
@@ -708,68 +619,6 @@ class _RecoveryBanner extends StatelessWidget {
     );
     return DateFormat.yMMMd().add_jm().format(dateTime);
   }
-
-  List<_RecoveryAttemptSummary> _summarizeAttempts(
-    List<LegacyKitRecoveryInitiatorHint> initiators,
-  ) {
-    final summaryByKey = <String, _RecoveryAttemptSummary>{};
-    for (var index = 0; index < initiators.length; index++) {
-      final initiator = initiators[index];
-      final partIndexes = initiator.usedPartIndexes.toSet().toList()..sort();
-      final key = partIndexes.isEmpty ? "unknown" : partIndexes.join(",");
-      final sheetNames = _sheetNames(partIndexes);
-      final existing = summaryByKey[key];
-      summaryByKey[key] = _RecoveryAttemptSummary(
-        sheetNames: sheetNames,
-        attemptCount: (existing?.attemptCount ?? 0) + 1,
-        latestAttemptIndex: index,
-        latestIP: _nonEmptyOrUnknown(initiator.ip),
-        latestUserAgent: _nonEmptyOrUnknown(initiator.userAgent),
-      );
-    }
-    return summaryByKey.values.toList()
-      ..sort((a, b) => b.latestAttemptIndex.compareTo(a.latestAttemptIndex));
-  }
-
-  String _sheetNames(List<int> partIndexes) {
-    if (partIndexes.isEmpty) {
-      return "Unknown sheets";
-    }
-    return partIndexes.map((partIndex) {
-      final partName = parts
-          .firstWhereOrNull((part) => part.index == partIndex)
-          ?.name
-          .trim();
-      return partName == null || partName.isEmpty
-          ? "Part $partIndex"
-          : partName;
-    }).join(" + ");
-  }
-
-  String _formatAttemptCount(int count) {
-    return count == 1 ? "1 attempt" : "$count attempts";
-  }
-
-  String _nonEmptyOrUnknown(String value) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? "Unknown" : trimmed;
-  }
-}
-
-class _RecoveryAttemptSummary {
-  final String sheetNames;
-  final int attemptCount;
-  final int latestAttemptIndex;
-  final String latestIP;
-  final String latestUserAgent;
-
-  const _RecoveryAttemptSummary({
-    required this.sheetNames,
-    required this.attemptCount,
-    required this.latestAttemptIndex,
-    required this.latestIP,
-    required this.latestUserAgent,
-  });
 }
 
 class _LegacyKitPartRow extends StatelessWidget {
