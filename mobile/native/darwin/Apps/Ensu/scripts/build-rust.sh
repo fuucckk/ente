@@ -59,7 +59,6 @@ EOF
 SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
 TARGET_SDKROOT=$(xcrun --sdk "$PLATFORM_NAME" --show-sdk-path)
 TARGET_CLANG=$(xcrun --sdk "$PLATFORM_NAME" --find clang)
-CLANG_RUNTIME_DIR=$("$TARGET_CLANG" -print-resource-dir)/lib/darwin
 export SDKROOT
 [[ -n "${IPHONEOS_DEPLOYMENT_TARGET:-}" ]] && \
     export CMAKE_OSX_DEPLOYMENT_TARGET="$IPHONEOS_DEPLOYMENT_TARGET"
@@ -110,17 +109,7 @@ build_crate() {
             rustflags+=" -C link-arg=$min_flag=$IPHONEOS_DEPLOYMENT_TARGET"
         fi
 
-        local clang_rt
-        case $PLATFORM_NAME in
-            iphoneos)        clang_rt="$CLANG_RUNTIME_DIR/libclang_rt.ios.a" ;;
-            iphonesimulator) clang_rt="$CLANG_RUNTIME_DIR/libclang_rt.iossim.a" ;;
-            *)               clang_rt="" ;;
-        esac
-        if [[ -n "$clang_rt" && -f "$clang_rt" ]]; then
-            rustflags+=" -C link-arg=$clang_rt"
-        fi
-
-        (cd "$crate_dir" && RUSTFLAGS="$rustflags" cargo build "${cargo_flags[@]}" --target "$target")
+        (cd "$crate_dir" && RUSTFLAGS="$rustflags" cargo rustc "${cargo_flags[@]}" --target "$target" --lib --crate-type staticlib)
 
         local built="$crate_dir/target/$target/$profile/$lib"
         [[ -f "$built" ]] || { echo "error: expected $built" >&2; exit 1; }
