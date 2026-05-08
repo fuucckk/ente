@@ -143,15 +143,12 @@ func (r *Repository) webAuthnInstanceForRPID(rpID string) (*webauthn.WebAuthn, e
 }
 
 func (r *Repository) selectRPIDForUser(userID int64) (string, error) {
-	hasLegacyPasskeys, err := r.hasLegacyPasskeyCredentials(userID)
+	legacyRPID, err := r.legacyRPIDForUser(userID)
 	if err != nil {
 		return "", err
 	}
-	if hasLegacyPasskeys {
-		if r.legacyRPID == "" {
-			return "", fmt.Errorf("webauthn.legacy-rpid is required for existing passkeys without rp_id")
-		}
-		return r.legacyRPID, nil
+	if legacyRPID != "" {
+		return legacyRPID, nil
 	}
 
 	return r.RPID, nil
@@ -761,20 +758,31 @@ func webAuthnCredentialsFromRows(rows *sql.Rows) (credentials []webauthn.Credent
 	return
 }
 
-func (r *Repository) hasLegacyPasskeyCredentials(userID int64) (bool, error) {
-	var count int64
+func (r *Repository) legacyRPIDForUser(userID int64) (string, error) {
+	var rpID sql.NullString
 	err := r.DB.QueryRow(`
-		SELECT COUNT(*)
+		SELECT pc.rp_id
 		FROM passkey_credentials pc
 		JOIN passkeys p ON pc.passkey_id = p.id
 		WHERE p.user_id = $1
 			AND p.deleted_at IS NULL
-			AND (pc.rp_id IS NULL OR pc.rp_id = $2)
-	`, userID, r.legacyRPID).Scan(&count)
-	if err != nil {
-		return false, stacktrace.Propagate(err, "")
+			AND (pc.rp_id IS NULL OR pc.rp_id != $2)
+		LIMIT 1
+	`, userID, r.RPID).Scan(&rpID)
+	if err == sql.ErrNoRows {
+		return "", nil
 	}
-	return count > 0, nil
+	if err != nil {
+		return "", stacktrace.Propagate(err, "")
+	}
+
+	if r.legacyRPID == "" {
+		return "", fmt.Errorf("webauthn.legacy-rpid is required for existing passkeys with a different rp_id")
+	}
+	if rpID.Valid && rpID.String != r.legacyRPID {
+		return "", fmt.Errorf("missing webauthn config for existing passkey rp_id %q", rpID.String)
+	}
+	return r.legacyRPID, nil
 }
 
 func (repo *Repository) RemoveExpiredPasskeySessions() error {
