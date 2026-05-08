@@ -30,6 +30,7 @@ import "package:ente_ui/theme/text_style.dart";
 import "package:ente_ui/utils/toast_util.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:flutter_svg/flutter_svg.dart";
 import "package:intl/intl.dart";
 import "package:logging/logging.dart";
 
@@ -1044,11 +1045,10 @@ class _LegacyKitLeadingIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Image.asset(
-        "assets/legacy_kit_favourite_circle.png",
+      child: SvgPicture.asset(
+        "assets/legacy_kit_favourite_circle.svg",
         width: 18,
         height: 18,
-        fit: BoxFit.contain,
       ),
     );
   }
