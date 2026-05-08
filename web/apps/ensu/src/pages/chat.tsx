@@ -1973,6 +1973,16 @@ const Page: React.FC = () => {
         [isTauriRuntime],
     );
 
+    const imageInferenceCacheDir = useCallback(async () => {
+        if (!isTauriRuntime) return undefined;
+        const { appDataDir, join } = await import("@tauri-apps/api/path");
+        const { createDir } = await import("@tauri-apps/api/fs");
+        const root = await appDataDir();
+        const dir = await join(root, "ensu_llmchat_inference_image_cache");
+        await createDir(dir, { recursive: true });
+        return dir;
+    }, [isTauriRuntime]);
+
     const cleanupInferenceImages = useCallback(
         async (paths: string[]) => {
             if (!isTauriRuntime || paths.length === 0) return;
@@ -2802,6 +2812,7 @@ const Page: React.FC = () => {
         currentSessionId,
         ensureProvider,
         flushStreamingText,
+        imageInferenceCacheDir,
         maybeGenerateSessionTitle,
         streamingParentId,
         updateBranchSelectionState,
@@ -2846,7 +2857,7 @@ const Page: React.FC = () => {
 
             const provider = await ensureProvider();
             const settings = getModelSettings();
-            const { contextSize, maxTokens } =
+            const { model, contextSize, maxTokens } =
                 provider.resolveRuntimeSettings(settings);
 
             if (!isActiveGeneration()) {
@@ -2949,6 +2960,9 @@ const Page: React.FC = () => {
                 if (hasImages && !mmprojPath) {
                     throw new Error("MMProj model not available");
                 }
+                const inferenceCacheDir = hasImages
+                    ? await imageInferenceCacheDir()
+                    : undefined;
 
                 await provider.generateChatStream(
                     {
@@ -2958,6 +2972,10 @@ const Page: React.FC = () => {
                         mediaMarker: hasImages
                             ? (mediaMarker ?? MEDIA_MARKER)
                             : undefined,
+                        imageInferenceMaxLongEdge: hasImages
+                            ? model.imageInferenceMaxLongEdge
+                            : undefined,
+                        imageInferenceCacheDir: inferenceCacheDir,
                         maxTokens,
                         temperature: 0.7,
                         topP: 0.9,

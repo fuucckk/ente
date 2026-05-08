@@ -28,6 +28,7 @@ export const DEFAULT_MODEL: ModelInfo = {
     sizeBytes: 695_752_160,
     mmprojSizeBytes: 583_109_888,
     sizeHuman: "~664 MB",
+    imageInferenceMaxLongEdge: 512,
 };
 
 const DESKTOP_DEFAULT_MODEL: ModelInfo = {
@@ -39,6 +40,7 @@ const DESKTOP_DEFAULT_MODEL: ModelInfo = {
     sizeBytes: 4_977_169_088,
     mmprojSizeBytes: 990_372_800,
     sizeHuman: "5.97 GB",
+    imageInferenceMaxLongEdge: 512,
 };
 
 interface TauriEnsuModelPreset {
@@ -46,6 +48,7 @@ interface TauriEnsuModelPreset {
     title: string;
     url: string;
     mmprojUrl?: string | null;
+    imageInferenceMaxLongEdge?: number | null;
 }
 
 interface TauriEnsuDefaults {
@@ -63,6 +66,7 @@ export interface ResolvedModelPreset {
     name: string;
     url: string;
     mmproj?: string;
+    imageInferenceMaxLongEdge?: number;
 }
 
 export const FALLBACK_MOBILE_MODEL_PRESETS: ResolvedModelPreset[] = [
@@ -74,11 +78,13 @@ export const FALLBACK_MOBILE_MODEL_PRESETS: ResolvedModelPreset[] = [
         name: "Qwen 3.5 0.8B (Q4_K_M)",
         url: "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf?download=true",
         mmproj: "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf",
+        imageInferenceMaxLongEdge: 768,
     },
     {
         name: "Qwen 3.5 2B (Q8_0)",
         url: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q8_0.gguf?download=true",
         mmproj: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf",
+        imageInferenceMaxLongEdge: 768,
     },
 ];
 
@@ -87,11 +93,13 @@ export const FALLBACK_DESKTOP_MODEL_PRESETS: ResolvedModelPreset[] = [
         name: "Qwen 3.5 4B (Q4_K_M)",
         url: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf?download=true",
         mmproj: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/mmproj-F16.gguf",
+        imageInferenceMaxLongEdge: 768,
     },
     {
         name: "LFM 2.5 VL 1.6B (Q4_0)",
         url: "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/LFM2.5-VL-1.6B-Q4_0.gguf?download=true",
         mmproj: "https://huggingface.co/LiquidAI/LFM2.5-VL-1.6B-GGUF/resolve/main/mmproj-LFM2.5-VL-1.6b-Q8_0.gguf",
+        imageInferenceMaxLongEdge: 512,
     },
     ...FALLBACK_MOBILE_MODEL_PRESETS,
 ];
@@ -158,6 +166,8 @@ export class LlmProvider {
             name: preset.title,
             url: preset.url,
             mmproj: preset.mmprojUrl ?? undefined,
+            imageInferenceMaxLongEdge:
+                preset.imageInferenceMaxLongEdge ?? undefined,
         }));
     }
 
@@ -518,6 +528,8 @@ export class LlmProvider {
                     name: rustPreset.title,
                     url: rustPreset.url,
                     mmprojUrl: rustPreset.mmprojUrl ?? undefined,
+                    imageInferenceMaxLongEdge:
+                        rustPreset.imageInferenceMaxLongEdge ?? undefined,
                 };
                 this.ensuDefaults = defaults;
             } catch (defaultsError) {
@@ -544,9 +556,47 @@ export class LlmProvider {
                 name: "Custom model",
                 url: settings.modelUrl,
                 mmprojUrl: settings.mmprojUrl,
+                imageInferenceMaxLongEdge:
+                    this.resolveKnownImageInferenceMaxLongEdge(
+                        settings.modelUrl,
+                    ),
             };
         }
         return this.defaultModel;
+    }
+
+    private resolveKnownImageInferenceMaxLongEdge(modelUrl: string) {
+        const normalizedUrl = modelUrl.trim();
+        if (!normalizedUrl) return undefined;
+
+        for (const preset of this.rustPresetCandidates()) {
+            if (preset.url === normalizedUrl) {
+                return preset.imageInferenceMaxLongEdge ?? undefined;
+            }
+        }
+
+        for (const preset of [
+            DEFAULT_MODEL,
+            DESKTOP_DEFAULT_MODEL,
+            ...FALLBACK_MOBILE_MODEL_PRESETS,
+            ...FALLBACK_DESKTOP_MODEL_PRESETS,
+        ]) {
+            if (preset.url === normalizedUrl) {
+                return preset.imageInferenceMaxLongEdge;
+            }
+        }
+
+        return undefined;
+    }
+
+    private rustPresetCandidates(): TauriEnsuModelPreset[] {
+        if (!this.ensuDefaults) return [];
+        return [
+            this.ensuDefaults.mobileDefaultModel,
+            this.ensuDefaults.desktopDefaultModel,
+            ...this.ensuDefaults.mobileModelPresets,
+            ...this.ensuDefaults.desktopModelPresets,
+        ];
     }
 
     private resolveMmprojUrl(model: ModelInfo, settings: ModelSettings) {

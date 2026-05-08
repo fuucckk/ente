@@ -5,6 +5,7 @@ struct EnsuRustModelPreset: Equatable {
     let title: String
     let url: String
     let mmprojUrl: String?
+    let imageInferenceMaxLongEdge: Int?
 }
 
 struct EnsuRustDefaultsValue {
@@ -42,7 +43,8 @@ private extension EnsuModelPreset {
             id: id,
             title: title,
             url: url,
-            mmprojUrl: mmprojUrl
+            mmprojUrl: mmprojUrl,
+            imageInferenceMaxLongEdge: imageInferenceMaxLongEdge.map(Int.init)
         )
     }
 }

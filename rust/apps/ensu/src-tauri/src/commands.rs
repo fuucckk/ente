@@ -80,6 +80,7 @@ pub struct TauriEnsuModelPreset {
     title: String,
     url: String,
     mmproj_url: Option<String>,
+    image_inference_max_long_edge: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -102,6 +103,7 @@ impl From<llm::EnsuModelPreset> for TauriEnsuModelPreset {
             title: p.title,
             url: p.url,
             mmproj_url: p.mmproj_url,
+            image_inference_max_long_edge: p.image_inference_max_long_edge,
         }
     }
 }

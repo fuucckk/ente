@@ -7,6 +7,7 @@ struct InferenceModelTarget: Equatable {
     let mmprojUrl: String?
     let contextLength: Int?
     let maxTokens: Int?
+    let imageInferenceMaxLongEdge: Int?
 }
 
 struct InferenceDownloadProgress: Equatable {
@@ -89,6 +90,7 @@ final class InferenceRsProvider {
     }
 
     private let modelDir: URL
+    private let imageInferenceCacheDir: URL
     private let downloadManager = ModelDownloadManager.shared
     private var modelHandle: ModelHandle?
     private var contextHandle: ContextHandle?
@@ -100,7 +102,9 @@ final class InferenceRsProvider {
 
     init(modelDir: URL) {
         self.modelDir = modelDir
+        self.imageInferenceCacheDir = modelDir.appendingPathComponent("image-inference-cache", isDirectory: true)
         try? FileManager.default.createDirectory(at: modelDir, withIntermediateDirectories: true, attributes: nil)
+        try? FileManager.default.createDirectory(at: imageInferenceCacheDir, withIntermediateDirectories: true, attributes: nil)
     }
 
     func ensureModelReady(
@@ -201,6 +205,8 @@ final class InferenceRsProvider {
             imagePaths: imageFiles.map { $0.path },
             mmprojPath: mmprojPath,
             mediaMarker: nil,
+            imageInferenceMaxLongEdge: target.imageInferenceMaxLongEdge.map(Int32.init),
+            imageInferenceCacheDir: imageFiles.isEmpty ? nil : imageInferenceCacheDir.path,
             maxTokens: maxTokens.map(Int32.init),
             temperature: clampedTemperature,
             topP: 0.9,

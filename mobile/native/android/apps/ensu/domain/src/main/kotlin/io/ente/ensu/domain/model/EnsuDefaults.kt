@@ -4,7 +4,8 @@ data class EnsuModelPreset(
     val id: String,
     val title: String,
     val url: String,
-    val mmprojUrl: String?
+    val mmprojUrl: String?,
+    val imageInferenceMaxLongEdge: Int?
 )
 
 data class EnsuDefaults(

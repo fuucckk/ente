@@ -8,7 +8,8 @@ data class LlmModelTarget(
     val url: String,
     val mmprojUrl: String? = null,
     val contextLength: Int? = null,
-    val maxTokens: Int? = null
+    val maxTokens: Int? = null,
+    val imageInferenceMaxLongEdge: Int? = null
 )
 
 data class DownloadProgress(
