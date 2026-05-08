@@ -54,13 +54,14 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
   late Debouncer _changeCallbackDebouncer;
   StreamSubscription<Uri?>? _widgetClickedSubscription;
   bool _didInitWidgetLaunchHandling = false;
+  late Future<Widget> _initialAndroidHome;
 
   @override
   void initState() {
     _logger.info('init App');
     super.initState();
     locale = widget.locale;
-    setupIntentAction();
+    _initialAndroidHome = _resolveInitialAndroidHome();
     WidgetsBinding.instance.addObserver(this);
     setupSubscription();
   }
@@ -111,14 +112,43 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     });
   }
 
-  void setupIntentAction() async {
+  Future<Widget> _resolveInitialAndroidHome() async {
     final mediaExtentionAction = Platform.isAndroid
         ? await initIntentAction()
         : MediaExtentionAction(action: IntentAction.main);
     AppLifecycleService.instance.setMediaExtensionAction(mediaExtentionAction);
     if (mediaExtentionAction.action == IntentAction.main) {
-      await BgTaskUtils.configureWorkmanager();
+      unawaited(BgTaskUtils.configureWorkmanager());
     }
+    if (_shouldOpenFileViewer(mediaExtentionAction)) {
+      return const FileViewer();
+    }
+    return const HomeWidget();
+  }
+
+  bool _shouldOpenFileViewer(MediaExtentionAction mediaExtentionAction) {
+    return mediaExtentionAction.action == IntentAction.view &&
+        (mediaExtentionAction.type == MediaType.image ||
+            mediaExtentionAction.type == MediaType.video);
+  }
+
+  Widget _buildInitialAndroidHome() {
+    return FutureBuilder<Widget>(
+      future: _initialAndroidHome,
+      builder: (context, snapshot) {
+        return snapshot.data ??
+            ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+            );
+      },
+    );
+  }
+
+  Widget _buildHome() {
+    if (Platform.isAndroid) {
+      return _buildInitialAndroidHome();
+    }
+    return const HomeWidget();
   }
 
   @override
@@ -138,15 +168,7 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
             themeMode: ThemeMode.system,
             theme: lightTheme,
             darkTheme: dartTheme,
-            home: AppLifecycleService.instance.mediaExtensionAction.action ==
-                        IntentAction.view &&
-                    (AppLifecycleService.instance.mediaExtensionAction.type ==
-                            MediaType.image ||
-                        AppLifecycleService
-                                .instance.mediaExtensionAction.type ==
-                            MediaType.video)
-                ? const FileViewer()
-                : const HomeWidget(),
+            home: _buildHome(),
             debugShowCheckedModeBanner: false,
             builder: EasyLoading.init(),
             locale: locale,
