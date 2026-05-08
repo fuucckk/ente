@@ -143,9 +143,7 @@ class RecoveryDateSelector extends StatelessWidget {
                 height: 34,
                 child: isSelected
                     ? Center(
-                        child: Icon(
-                          Icons.check_circle,
-                          size: 18,
+                        child: _RecoveryDateSelectedIcon(
                           color: colorScheme.primary700,
                         ),
                       )
@@ -156,5 +154,65 @@ class RecoveryDateSelector extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _RecoveryDateSelectedIcon extends StatelessWidget {
+  final Color color;
+
+  const _RecoveryDateSelectedIcon({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size.square(18),
+      painter: _RecoveryDateSelectedIconPainter(color),
+    );
+  }
+}
+
+class _RecoveryDateSelectedIconPainter extends CustomPainter {
+  final Color color;
+
+  const _RecoveryDateSelectedIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 18;
+    canvas.save();
+    canvas.scale(scale);
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(16.5, 9)
+        ..cubicTo(16.5, 4.85786, 13.1421, 1.5, 9, 1.5)
+        ..cubicTo(4.85786, 1.5, 1.5, 4.85786, 1.5, 9)
+        ..cubicTo(1.5, 13.1421, 4.85786, 16.5, 9, 16.5)
+        ..cubicTo(13.1421, 16.5, 16.5, 13.1421, 16.5, 9)
+        ..close(),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(6, 9.375)
+        ..lineTo(7.875, 11.25)
+        ..lineTo(12, 6.75),
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_RecoveryDateSelectedIconPainter oldDelegate) {
+    return color != oldDelegate.color;
   }
 }

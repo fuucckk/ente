@@ -43,6 +43,39 @@ struct InferenceGenerationSummary {
     let totalTimeMs: Int64?
 }
 
+private actor AsyncSerialGate {
+    private var isLocked = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func withLock<T>(_ operation: () async throws -> T) async throws -> T {
+        await acquire()
+        defer { release() }
+        try Task.checkCancellation()
+        return try await operation()
+    }
+
+    private func acquire() async {
+        if !isLocked {
+            isLocked = true
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    private func release() {
+        guard !waiters.isEmpty else {
+            isLocked = false
+            return
+        }
+
+        let continuation = waiters.removeFirst()
+        continuation.resume()
+    }
+}
+
 final class InferenceRsProvider {
     private struct LoadedModelKey: Equatable {
         let id: String
@@ -63,6 +96,7 @@ final class InferenceRsProvider {
     private var currentContextLength: Int?
     private var backendInitialized = false
     private var currentJobId: Int64?
+    private let modelLoadGate = AsyncSerialGate()
 
     init(modelDir: URL) {
         self.modelDir = modelDir
@@ -73,10 +107,12 @@ final class InferenceRsProvider {
         target: InferenceModelTarget,
         onProgress: @escaping (InferenceDownloadProgress) -> Void
     ) async throws {
-        try await ensureModelReady(target: target, onProgress: onProgress, allowRecovery: true)
+        try await modelLoadGate.withLock {
+            try await ensureModelReadyLocked(target: target, onProgress: onProgress, allowRecovery: true)
+        }
     }
 
-    private func ensureModelReady(
+    private func ensureModelReadyLocked(
         target: InferenceModelTarget,
         onProgress: @escaping (InferenceDownloadProgress) -> Void,
         allowRecovery: Bool
@@ -130,7 +166,7 @@ final class InferenceRsProvider {
             if allowRecovery, downloads.isEmpty,
                recoverFromCachedModelLoadFailure(modelPath: modelPath, mmprojPath: mmprojPath) {
                 onProgress(InferenceDownloadProgress(percent: 0, status: "Starting download..."))
-                try await ensureModelReady(target: target, onProgress: onProgress, allowRecovery: false)
+                try await ensureModelReadyLocked(target: target, onProgress: onProgress, allowRecovery: false)
                 return
             }
             throw error
@@ -225,6 +261,36 @@ final class InferenceRsProvider {
             cancel(jobId: jobId)
         } else {
             cancel(jobId: 0)
+        }
+    }
+
+    func prewarmImageInference(target: InferenceModelTarget) async {
+        guard isModelDownloaded(target: target) else { return }
+
+        do {
+            try await Task.detached(priority: .utility) { [weak self] in
+                guard let self else { return }
+                try await self.modelLoadGate.withLock {
+                    guard self.isModelDownloaded(target: target) else { return }
+                    guard let mmprojPath = self.mmprojPathFor(target: target),
+                          FileManager.default.fileExists(atPath: mmprojPath.path) else {
+                        return
+                    }
+
+                    try await self.ensureModelReadyLocked(target: target, onProgress: { _ in }, allowRecovery: true)
+                    guard let context = self.contextHandle else {
+                        return
+                    }
+
+                    try prewarmMultimodalContext(
+                        context: context,
+                        mmprojPath: mmprojPath.path,
+                        mediaMarker: nil
+                    )
+                }
+            }.value
+        } catch {
+            return
         }
     }
 

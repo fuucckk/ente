@@ -6,7 +6,7 @@ const int thumbnailDataLimit = 100 * 1024;
 const String sentryDSN =
     "https://ed4ddd6309b847ba8849935e26e9b648@sentry.ente.io/9";
 
-const String kAccountsUrl = "https://accounts.ente.io";
+const String kAccountsUrl = "https://accounts.ente.com";
 
 final Uri githubFeatureRequestUri = Uri.https(
   "github.com",

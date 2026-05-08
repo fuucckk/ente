@@ -242,7 +242,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ENTE_API_ENDPOINT=\"${ENTE_API_ENDPOINT}\" \"${SRCROOT}/scripts/build-rust.sh\"\n";
+			shellScript = "ENTE_API_ENDPOINT=\"${ENTE_API_ENDPOINT}\" bash \"${SRCROOT}/scripts/build-rust.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -22,11 +22,14 @@ import io.ente.labs.inference_rs.initBackend
 import io.ente.labs.inference_rs.loadModel
 import io.ente.labs.inference_rs.createContext
 import io.ente.labs.inference_rs.generateChatStream
+import io.ente.labs.inference_rs.prewarmMultimodalContext
 import io.ente.labs.inference_rs.cancel
 import io.ente.labs.inference_rs.uniffiEnsureInitialized
 import io.ente.labs.inference_rs.InferenceException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -82,6 +85,7 @@ class InferenceRsProvider(
     @Volatile private var manualDownloadCancelled = false
     @Volatile private var manualDownloadActive = false
     private var backendInitialized = false
+    private val modelLoadMutex = Mutex()
     private val migratedLegacyTargets = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val legacyMigrationLocks = ConcurrentHashMap<String, ReentrantLock>()
 
@@ -95,27 +99,9 @@ class InferenceRsProvider(
         onProgress: (DownloadProgress) -> Unit
     ) {
         withContext(ioDispatcher) {
-            val modelKey = LoadedModelKey(target.id, target.contextLength)
-            if (!backendInitialized) {
-                initBackend()
-                backendInitialized = true
+            modelLoadMutex.withLock {
+                ensureModelReadyLocked(target, onProgress)
             }
-
-            if (currentModelKey == modelKey && contextHandle != null && modelHandle != null) {
-                return@withContext
-            }
-
-            unloadModel()
-
-            migrateLegacyDownloads(target)
-            val modelFile = ModelDownloadSupport.modelPathFor(modelDir, target)
-            if (!ModelDownloadSupport.isTargetDownloaded(modelDir, target)) {
-                awaitBackgroundDownload(target, onProgress)
-            }
-
-            onProgress(DownloadProgress(100, "Loading model..."))
-            loadWithFallbacks(target, modelFile)
-            onProgress(DownloadProgress(100, "Ready"))
         }
     }
 
@@ -159,6 +145,25 @@ class InferenceRsProvider(
 
         val summary = generateStreamWithCallback(context, request, onToken)
         GenerationSummary(summary.jobId, summary.generatedTokens ?: 0, summary.totalTimeMs)
+    }
+
+    override suspend fun prewarmImageInference(target: LlmModelTarget) {
+        withContext(ioDispatcher) {
+            runCatching {
+                modelLoadMutex.withLock {
+                    if (!isDownloadComplete(target)) return@withLock
+                    val mmprojPath = ModelDownloadSupport.mmprojPathFor(modelDir, target)
+                        ?.takeIf { it.exists() }
+                        ?.absolutePath
+                        ?: return@withLock
+                    ensureModelReadyLocked(target) { }
+                    val context = contextHandle ?: return@withLock
+                    prewarmMultimodalContext(context, mmprojPath, null)
+                }
+            }.onFailure { error ->
+                Log.d("InferenceRsProvider", "Image inference prewarm skipped", error)
+            }
+        }
     }
 
     override val isManualDownloadActive: Boolean get() = manualDownloadActive
@@ -333,6 +338,33 @@ class InferenceRsProvider(
         modelHandle = null
         currentModelKey = null
         currentContextLength = null
+    }
+
+    private suspend fun ensureModelReadyLocked(
+        target: LlmModelTarget,
+        onProgress: (DownloadProgress) -> Unit
+    ) {
+        val modelKey = LoadedModelKey(target.id, target.contextLength)
+        if (!backendInitialized) {
+            initBackend()
+            backendInitialized = true
+        }
+
+        if (currentModelKey == modelKey && contextHandle != null && modelHandle != null) {
+            return
+        }
+
+        unloadModel()
+
+        migrateLegacyDownloads(target)
+        val modelFile = ModelDownloadSupport.modelPathFor(modelDir, target)
+        if (!ModelDownloadSupport.isTargetDownloaded(modelDir, target)) {
+            awaitBackgroundDownload(target, onProgress)
+        }
+
+        onProgress(DownloadProgress(100, "Loading model..."))
+        loadWithFallbacks(target, modelFile)
+        onProgress(DownloadProgress(100, "Ready"))
     }
 
     private fun loadWithFallbacks(target: LlmModelTarget, modelFile: File) {
