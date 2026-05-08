@@ -537,8 +537,7 @@ class _EmergencyPageState extends State<EmergencyPage> {
             ),
           ),
           leadingIconSize: 36,
-          leadingIconWidget:
-              _LegacyKitLeadingIcon(color: colorScheme.primary700),
+          leadingIconWidget: const _LegacyKitLeadingIcon(),
           menuItemColor: cardColor,
           singleBorderRadius: 20,
           trailingIcon: Icons.chevron_right,
@@ -1040,76 +1039,18 @@ class _FullLegacyEmptyState extends StatelessWidget {
 }
 
 class _LegacyKitLeadingIcon extends StatelessWidget {
-  final Color color;
-
-  const _LegacyKitLeadingIcon({required this.color});
+  const _LegacyKitLeadingIcon();
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: CustomPaint(
-        size: const Size.square(18),
-        painter: _LegacyKitLeadingIconPainter(color),
+      child: Image.asset(
+        "assets/legacy_kit_favourite_circle.png",
+        width: 18,
+        height: 18,
+        fit: BoxFit.contain,
       ),
     );
-  }
-}
-
-class _LegacyKitLeadingIconPainter extends CustomPainter {
-  final Color color;
-
-  const _LegacyKitLeadingIconPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final scale = size.width / 18;
-    canvas.save();
-    canvas.scale(scale);
-
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final filePath = Path()
-      ..moveTo(3.5, 2.5)
-      ..lineTo(10.2, 2.5)
-      ..lineTo(14.5, 6.8)
-      ..lineTo(14.5, 15.5)
-      ..lineTo(3.5, 15.5)
-      ..close();
-    canvas.drawPath(filePath, strokePaint);
-
-    final foldPath = Path()
-      ..moveTo(10.2, 2.5)
-      ..lineTo(10.2, 6.8)
-      ..lineTo(14.5, 6.8);
-    canvas.drawPath(foldPath, strokePaint);
-
-    final heartPath = Path()
-      ..moveTo(13.5, 16)
-      ..cubicTo(13.1, 15.7, 10, 13.8, 10, 11.5)
-      ..cubicTo(10, 10.3, 10.8, 9.4, 12, 9.4)
-      ..cubicTo(12.6, 9.4, 13.1, 9.7, 13.5, 10.2)
-      ..cubicTo(13.9, 9.7, 14.4, 9.4, 15, 9.4)
-      ..cubicTo(16.2, 9.4, 17, 10.3, 17, 11.5)
-      ..cubicTo(17, 13.8, 13.9, 15.7, 13.5, 16)
-      ..close();
-
-    canvas.drawPath(
-      heartPath,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.fill,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_LegacyKitLeadingIconPainter oldDelegate) {
-    return color != oldDelegate.color;
   }
 }
 
