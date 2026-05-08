@@ -541,7 +541,7 @@ class _EmergencyPageState extends State<EmergencyPage> {
           menuItemColor: cardColor,
           singleBorderRadius: 20,
           trailingIcon: Icons.chevron_right,
-          trailingIconIsMuted: true,
+          trailingIconColor: colorScheme.strokeBase,
           surfaceExecutionStates: false,
           alwaysShowSuccessState: false,
           onTap: () async {
@@ -1043,10 +1043,13 @@ class _LegacyKitLeadingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CustomPaint(
-        size: Size.square(18),
-        painter: _LegacyKitLeadingIconPainter(),
+    return const SizedBox.square(
+      dimension: 36,
+      child: Center(
+        child: CustomPaint(
+          size: Size.square(18),
+          painter: _LegacyKitLeadingIconPainter(),
+        ),
       ),
     );
   }
