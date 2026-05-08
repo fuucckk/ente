@@ -110,7 +110,8 @@ func main() {
 	viper.SetDefault("apps.public-locker", "https://share.ente.com")
 	viper.SetDefault("apps.public-paste", "https://paste.ente.com")
 	viper.SetDefault("apps.public-memories", "https://memories.ente.com")
-	viper.SetDefault("apps.accounts", "https://accounts.ente.io")
+	viper.SetDefault("apps.accounts", "https://accounts.ente.com")
+	viper.SetDefault("apps.accounts-legacy", "https://accounts.ente.io")
 	viper.SetDefault("apps.cast", "https://cast.ente.com")
 	viper.SetDefault("apps.family", "https://family.ente.io")
 
