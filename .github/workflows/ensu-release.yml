@@ -1,5 +1,18 @@
 name: "Release (ensu)"
 
+# USAGE
+#
+# Nightlies run every weekday morning (IST), or whenever this workflow is run
+# manually. They update the prerelease tagged "ensu-v{next}-beta", such as
+# ensu-v0.1.16-beta when the latest stable tag is ensu-v0.1.15.
+#
+# To create a release, push a stable tag of the form "ensu-v{next}", e.g.:
+#
+#   git tag ensu-v0.1.16 && git push origin ensu-v0.1.16
+#
+# This creates a draft release tagged "ensu-v{next}" and removes the matching
+# "ensu-v{next}-beta" prerelease and tag.
+
 on:
     push:
         # Run when a release tag matching the pattern "ensu-v*" is pushed
@@ -28,6 +41,8 @@ jobs:
 
         outputs:
             release_tag: ${{ steps.release.outputs.release_tag }}
+            release_name: ${{ steps.release.outputs.release_name }}
+            release_body: ${{ steps.release.outputs.release_body }}
             release_draft: ${{ steps.release.outputs.release_draft }}
             release_prerelease: ${{ steps.release.outputs.release_prerelease }}
             short_sha: ${{ steps.release.outputs.short_sha }}
@@ -46,6 +61,8 @@ jobs:
 
                   if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
                       RELEASE_TAG="${GITHUB_REF_NAME}"
+                      RELEASE_NAME="${RELEASE_TAG}"
+                      RELEASE_BODY=""
                       RELEASE_DRAFT=true
                       RELEASE_PRERELEASE=false
                   else
@@ -62,11 +79,15 @@ jobs:
                       stable_version="${latest_stable_tag#ensu-v}"
                       IFS=. read -r major minor patch <<< "${stable_version}"
                       RELEASE_TAG="ensu-v${major}.${minor}.$((patch + 1))-beta"
+                      RELEASE_NAME="${RELEASE_TAG}"
+                      RELEASE_BODY="Nightly builds"
                       RELEASE_DRAFT=false
                       RELEASE_PRERELEASE=true
                   fi
 
                   echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+                  echo "release_name=${RELEASE_NAME}" >> "${GITHUB_OUTPUT}"
+                  echo "release_body=${RELEASE_BODY}" >> "${GITHUB_OUTPUT}"
                   echo "release_draft=${RELEASE_DRAFT}" >> "${GITHUB_OUTPUT}"
                   echo "release_prerelease=${RELEASE_PRERELEASE}" >> "${GITHUB_OUTPUT}"
                   echo "short_sha=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
@@ -94,6 +115,8 @@ jobs:
         runs-on: ${{ matrix.platform.os }}
         env:
             RELEASE_TAG: ${{ needs.release-metadata.outputs.release_tag }}
+            RELEASE_NAME: ${{ needs.release-metadata.outputs.release_name }}
+            RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
             RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
             RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
             HAS_WINDOWS_SIGNING: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_ENDPOINT != '' && secrets.AZURE_CODE_SIGNING_NAME != '' && secrets.AZURE_CERT_PROFILE_NAME != '' }}
@@ -258,8 +281,8 @@ jobs:
               with:
                   projectPath: rust/apps/ensu
                   tagName: ${{ env.RELEASE_TAG }}
-                  releaseName: "Ensu Desktop ${{ env.RELEASE_TAG }}"
-                  releaseBody: "Ensu release assets: Linux/macOS/Windows desktop + Android APK."
+                  releaseName: ${{ env.RELEASE_NAME }}
+                  releaseBody: ${{ env.RELEASE_BODY }}
                   releaseCommitish: ${{ github.sha }}
                   releaseDraft: ${{ env.RELEASE_DRAFT }}
                   prerelease: ${{ env.RELEASE_PRERELEASE }}
@@ -273,6 +296,8 @@ jobs:
         runs-on: ubuntu-22.04
         env:
             RELEASE_TAG: ${{ needs.release-metadata.outputs.release_tag }}
+            RELEASE_NAME: ${{ needs.release-metadata.outputs.release_name }}
+            RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
             RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
             RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
             SHORT_SHA: ${{ needs.release-metadata.outputs.short_sha }}
@@ -350,6 +375,8 @@ jobs:
               uses: ncipollo/release-action@v1
               with:
                   tag: ${{ env.RELEASE_TAG }}
+                  name: ${{ env.RELEASE_NAME }}
+                  body: ${{ env.RELEASE_BODY }}
                   commit: ${{ github.sha }}
                   artifacts: mobile/native/android/apps/ensu/artifacts/${{ env.RELEASE_TAG }}.apk
                   allowUpdates: true
