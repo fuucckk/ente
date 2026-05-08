@@ -681,7 +681,7 @@ func (r *Repository) getPasskeyCredentialsForRPID(userID int64, rpID string) (cr
 		SELECT
 			pc.passkey_id,
 			pc.credential_id,
-			pc.rp_id,
+			$2 AS rp_id,
 			pc.public_key,
 			pc.attestation_type,
 			pc.authenticator_transports,
@@ -692,8 +692,8 @@ func (r *Repository) getPasskeyCredentialsForRPID(userID int64, rpID string) (cr
 		JOIN passkeys p ON pc.passkey_id = p.id
 		WHERE p.user_id = $1
 			AND p.deleted_at IS NULL
-			AND pc.rp_id = $2
-	`, userID, rpID)
+			AND (pc.rp_id = $2 OR ($3 AND pc.rp_id IS NULL))
+	`, userID, rpID, r.legacyRPID == "")
 	if err != nil {
 		err = stacktrace.Propagate(err, "")
 		return
@@ -766,9 +766,9 @@ func (r *Repository) legacyRPIDForUser(userID int64) (string, error) {
 		JOIN passkeys p ON pc.passkey_id = p.id
 		WHERE p.user_id = $1
 			AND p.deleted_at IS NULL
-			AND (pc.rp_id IS NULL OR pc.rp_id != $2)
+			AND (pc.rp_id != $2 OR ($3 AND pc.rp_id IS NULL))
 		LIMIT 1
-	`, userID, r.RPID).Scan(&rpID)
+	`, userID, r.RPID, r.legacyRPID != "").Scan(&rpID)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -777,10 +777,10 @@ func (r *Repository) legacyRPIDForUser(userID int64) (string, error) {
 	}
 
 	if r.legacyRPID == "" {
-		return "", fmt.Errorf("webauthn.legacy-rpid is required for existing passkeys with a different rp_id")
+		return "", fmt.Errorf("webauthn.legacy-rpid is required for existing passkey rp_id %q", rpID.String)
 	}
 	if rpID.Valid && rpID.String != r.legacyRPID {
-		return "", fmt.Errorf("missing webauthn config for existing passkey rp_id %q", rpID.String)
+		return "", fmt.Errorf("existing passkey rp_id %q does not match configured webauthn.legacy-rpid %q", rpID.String, r.legacyRPID)
 	}
 	return r.legacyRPID, nil
 }
