@@ -151,7 +151,7 @@ class _HomeWidgetState extends State<HomeWidget> {
 
   @override
   void initState() {
-    _logger.info("Building initstate");
+    _logger.info("initstate");
     super.initState();
 
     NotificationService.instance
