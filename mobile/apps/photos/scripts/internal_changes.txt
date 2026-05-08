@@ -1,4 +1,5 @@
 Latest changes:
+- Aman: Batch large free up space deletes to avoid oversized OS delete requests
 - Ashil: Fix some popup menus auto closing immediately after opening on iPads
 - Ashil: Fix social notifications not working on iOS
 - Laurens: Improved memories loading

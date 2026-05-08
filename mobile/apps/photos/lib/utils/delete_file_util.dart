@@ -346,8 +346,10 @@ Future<bool> deleteLocalFiles(
   final List<String> localAssetIDs = [];
   final List<String> localSharedMediaIDs = [];
 
-  const largeCountThreshold = 20000;
-  final tooManyAssets = localIDs.length > largeCountThreshold;
+  // Keep large platform asset deletes in smaller batches. Android 11+ routes this
+  // through MediaStore.createDeleteRequest, where our target SDK has a 2000 URI
+  // cap, and smaller batches are also safer for large iOS Photos deletes.
+  const largeCountThreshold = 1900;
   try {
     for (String id in localIDs) {
       if (id.startsWith(sharedMediaIdentifier)) {
@@ -358,17 +360,18 @@ Future<bool> deleteLocalFiles(
     }
     deletedIDs.addAll(await _tryDeleteSharedMediaFiles(localSharedMediaIDs));
 
+    final tooManyAssets = localAssetIDs.length > largeCountThreshold;
     final bool shouldDeleteInBatches =
         await isAndroidSDKVersionLowerThan(android11SDKINT) || tooManyAssets;
     if (shouldDeleteInBatches) {
       if (tooManyAssets) {
         _logger.info(
-          "Too many assets (${localIDs.length}) to delete in one shot, deleting in batches",
+          "Too many assets (${localAssetIDs.length}) to delete in one shot, deleting in batches",
         );
         await _recursivelyReduceBatchSizeAndRetryDeletion(
           batchSize: largeCountThreshold,
           context: context,
-          localIDs: localIDs,
+          localIDs: localAssetIDs,
           deletedIDs: deletedIDs,
         );
       } else {
@@ -657,7 +660,7 @@ Future<void> _recursivelyReduceBatchSizeAndRetryDeletion({
   required BuildContext context,
   required List<String> localIDs,
   required List<String> deletedIDs,
-  int minimumBatchSizeThresholdToStopRetry = 2000,
+  int minimumBatchSizeThresholdToStopRetry = 1900,
 }) async {
   if (batchSize < minimumBatchSizeThresholdToStopRetry) {
     _logger.warning(
