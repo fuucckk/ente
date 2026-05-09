@@ -158,16 +158,19 @@ final class InferenceRsProvider {
 
         if !downloads.isEmpty {
             onProgress(InferenceDownloadProgress(percent: 0, status: "Starting download..."))
+            await downloadManager.cancelDownloads(for: downloads.map(downloadTarget(for:)))
             do {
-                await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
-                try await waitForDownloads(expectedTargets, onProgress: onProgress)
+                try await downloadWithRust(expectedTargets, onProgress: onProgress)
             } catch {
-                if error is CancellationError {
-                    await downloadManager.cancelAllDownloads()
+                if isDownloadCancellation(error) {
                     throw error
                 }
-                await downloadManager.cancelAllDownloads()
-                try await downloadWithRust(expectedTargets, onProgress: onProgress)
+                logger.warning(
+                    "Rust model download failed; falling back to URLSession",
+                    details: "\(error.localizedDescription)"
+                )
+                await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
+                try await waitForDownloads(expectedTargets, onProgress: onProgress)
             }
         }
 
@@ -553,7 +556,7 @@ final class InferenceRsProvider {
             LlmModelDownloadTarget(label: $0.label, url: $0.url, destinationPath: $0.destination.path)
         }
 
-        try await Task.detached(priority: .utility) { [weak self] in
+        let downloadTask = Task.detached(priority: .utility) { [weak self] in
             guard let self else { return }
             let callback = ModelDownloadCallbackSink(
                 onProgress: { progress in
@@ -561,11 +564,18 @@ final class InferenceRsProvider {
                     onProgress(progress.toInferenceProgress())
                 },
                 isCancelled: { [weak self] in
-                    self?.isRustDownloadCancelled() ?? true
+                    (self?.isRustDownloadCancelled() ?? true) || Task.isCancelled
                 }
             )
             try downloadLlmModelFiles(targets: targets, callback: callback)
-        }.value
+        }
+
+        try await withTaskCancellationHandler {
+            try await downloadTask.value
+        } onCancel: {
+            self.setRustDownloadCancelled(true)
+            downloadTask.cancel()
+        }
     }
 
     private func setRustDownloadCancelled(_ cancelled: Bool) {
@@ -579,6 +589,12 @@ final class InferenceRsProvider {
         let cancelled = rustDownloadCancelled
         rustDownloadCancelLock.unlock()
         return cancelled
+    }
+
+    private func isDownloadCancellation(_ error: Error) -> Bool {
+        error is CancellationError ||
+            isRustDownloadCancelled() ||
+            error.localizedDescription.range(of: "cancelled", options: .caseInsensitive) != nil
     }
 
     private func logDownloadMetrics(_ progress: LlmModelDownloadProgress) {

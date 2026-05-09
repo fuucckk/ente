@@ -32,6 +32,7 @@ import io.ente.labs.inference_rs.downloadLlmModelFiles
 import io.ente.labs.inference_rs.uniffiEnsureInitialized
 import io.ente.labs.inference_rs.InferenceException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -44,6 +45,7 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.coroutines.coroutineContext
 import kotlin.math.max
 
 class InferenceRsProvider(
@@ -364,7 +366,7 @@ class InferenceRsProvider(
         migrateLegacyDownloads(target)
         val modelFile = ModelDownloadSupport.modelPathFor(modelDir, target)
         if (!ModelDownloadSupport.isTargetDownloaded(modelDir, target)) {
-            awaitBackgroundDownload(target, onProgress)
+            awaitForegroundDownload(target, onProgress)
         }
 
         onProgress(DownloadProgress(100, "Loading model..."))
@@ -408,12 +410,31 @@ class InferenceRsProvider(
         throw lastError ?: IllegalStateException("Failed to load model")
     }
 
+    private suspend fun awaitForegroundDownload(
+        target: LlmModelTarget,
+        onProgress: (DownloadProgress) -> Unit
+    ) {
+        cancelNativeDownloads(target)
+        try {
+            awaitRustForegroundDownload(target, onProgress)
+        } catch (error: Throwable) {
+            if (manualDownloadCancelled || error.isDownloadCancellation()) {
+                throw error
+            }
+            if (externalDownloadsRoot == null || downloadManager == null) {
+                throw error
+            }
+            Log.w("InferenceRsProvider", "Rust model download failed; falling back to DownloadManager", error)
+            awaitBackgroundDownload(target, onProgress)
+        }
+    }
+
     private suspend fun awaitBackgroundDownload(
         target: LlmModelTarget,
         onProgress: (DownloadProgress) -> Unit
     ) {
         if (externalDownloadsRoot == null || downloadManager == null) {
-            awaitManualDownload(target, onProgress)
+            awaitRustForegroundDownload(target, onProgress)
             return
         }
         ensureDownloadsEnqueued(target)
@@ -446,10 +467,11 @@ class InferenceRsProvider(
         }
     }
 
-    private fun awaitManualDownload(
+    private suspend fun awaitRustForegroundDownload(
         target: LlmModelTarget,
         onProgress: (DownloadProgress) -> Unit
     ) {
+        val downloadJob = coroutineContext[Job]
         manualDownloadCancelled = false
         manualDownloadActive = true
         try {
@@ -469,12 +491,25 @@ class InferenceRsProvider(
                         onProgress(progress.toDomainProgress())
                     }
 
-                    override fun isCancelled(): Boolean = manualDownloadCancelled
+                    override fun isCancelled(): Boolean =
+                        manualDownloadCancelled || downloadJob?.isCancelled == true
                 }
             )
         } finally {
             manualDownloadActive = false
         }
+    }
+
+    private fun Throwable.isDownloadCancellation(): Boolean {
+        return message?.contains("cancelled", ignoreCase = true) == true
+    }
+
+    private fun cancelNativeDownloads(target: LlmModelTarget) {
+        val ids = loadDownloadRecords(target).map { it.downloadId }.distinct()
+        if (ids.isNotEmpty() && downloadManager != null) {
+            downloadManager.remove(*ids.toLongArray())
+        }
+        clearDownloadRecords(target)
     }
 
     private fun logDownloadMetrics(progress: LlmModelDownloadProgress) {
