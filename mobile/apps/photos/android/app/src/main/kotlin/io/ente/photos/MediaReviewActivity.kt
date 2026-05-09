@@ -1,45 +1,47 @@
 package io.ente.photos
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.MimeTypeMap
-import io.flutter.embedding.android.FlutterFragmentActivity
 import java.util.Locale
 
-class MediaReviewActivity : FlutterFragmentActivity() {
+class MediaReviewActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        val shouldHandleIntent = normalizeReviewIntent(intent)
         super.onCreate(savedInstanceState)
-        if (!shouldHandleIntent) {
-            finish()
-        }
+        forwardIntent(intent)
+        finish()
     }
 
     override fun onNewIntent(intent: Intent) {
-        val shouldHandleIntent = normalizeReviewIntent(intent)
         super.onNewIntent(intent)
-        if (shouldHandleIntent) {
-            setIntent(intent)
-        } else {
-            finish()
-        }
+        forwardIntent(intent)
+        finish()
     }
 
-    private fun normalizeReviewIntent(intent: Intent?): Boolean {
-        val reviewIntent = intent ?: return false
+    private fun forwardIntent(intent: Intent?) {
+        val viewIntent = normalizedViewIntent(intent) ?: return
+        viewIntent.setClass(this, MainActivity::class.java)
+        viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(viewIntent)
+    }
+
+    private fun normalizedViewIntent(intent: Intent?): Intent? {
+        val reviewIntent = intent ?: return null
         if (reviewIntent.action !in reviewActions) {
-            return true
+            return Intent(reviewIntent)
         }
-        val uri = reviewIntent.data ?: reviewIntent.streamUri ?: return false
-        val type = reviewIntent.type ?: resolveMimeType(uri) ?: return false
+        val uri = reviewIntent.data ?: reviewIntent.streamUri ?: return null
+        val type = reviewIntent.type ?: resolveMimeType(uri) ?: return null
         if (!type.isSupportedReviewMimeType()) {
-            return false
+            return null
         }
 
-        reviewIntent.action = Intent.ACTION_VIEW
-        reviewIntent.setDataAndType(uri, type)
-        return true
+        return Intent(reviewIntent).apply {
+            action = Intent.ACTION_VIEW
+            setDataAndType(uri, type)
+        }
     }
 
     private fun resolveMimeType(uri: Uri): String? {

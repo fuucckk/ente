@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:home_widget/home_widget.dart' as hw;
 import 'package:logging/logging.dart';
+import "package:media_extension/media_extension.dart";
 import 'package:media_extension/media_extension_action_types.dart';
 import "package:photos/core/event_bus.dart";
 import 'package:photos/ente_theme_data.dart';
@@ -52,6 +53,7 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
   final _logger = Logger("EnteAppState");
   late StreamSubscription<PeopleChangedEvent> _peopleChangedSubscription;
   late Debouncer _changeCallbackDebouncer;
+  StreamSubscription<MediaExtentionAction>? _intentActionSubscription;
   StreamSubscription<Uri?>? _widgetClickedSubscription;
   bool _didInitWidgetLaunchHandling = false;
   late Future<Widget> _initialAndroidHome;
@@ -62,6 +64,19 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     super.initState();
     locale = widget.locale;
     _initialAndroidHome = _resolveInitialAndroidHome();
+    if (Platform.isAndroid) {
+      _intentActionSubscription = MediaExtension().intentActionStream.listen(
+        (mediaExtentionAction) =>
+            unawaited(_handleAndroidIntentAction(mediaExtentionAction)),
+        onError: (Object error, StackTrace stackTrace) {
+          _logger.warning(
+            "Failed to handle Android intent action",
+            error,
+            stackTrace,
+          );
+        },
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     setupSubscription();
   }
@@ -116,8 +131,9 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     final mediaExtentionAction = Platform.isAndroid
         ? await initIntentAction()
         : MediaExtentionAction(action: IntentAction.main);
-    AppLifecycleService.instance.setMediaExtensionAction(mediaExtentionAction);
-    if (mediaExtentionAction.action == IntentAction.main) {
+    final lifecycleAction = _appLifecycleActionFor(mediaExtentionAction);
+    AppLifecycleService.instance.setMediaExtensionAction(lifecycleAction);
+    if (lifecycleAction.action == IntentAction.main) {
       unawaited(BgTaskUtils.configureWorkmanager());
     }
     if (_shouldOpenFileViewer(mediaExtentionAction)) {
@@ -130,6 +146,28 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     return mediaExtentionAction.action == IntentAction.view &&
         (mediaExtentionAction.type == MediaType.image ||
             mediaExtentionAction.type == MediaType.video);
+  }
+
+  MediaExtentionAction _appLifecycleActionFor(
+    MediaExtentionAction mediaExtentionAction,
+  ) {
+    if (mediaExtentionAction.action == IntentAction.view &&
+        !_shouldOpenFileViewer(mediaExtentionAction)) {
+      return MediaExtentionAction(action: IntentAction.main);
+    }
+    return mediaExtentionAction;
+  }
+
+  Future<void> _handleAndroidIntentAction(
+    MediaExtentionAction mediaExtentionAction,
+  ) async {
+    AppLifecycleService.instance.setMediaExtensionAction(
+      _appLifecycleActionFor(mediaExtentionAction),
+    );
+    if (!_shouldOpenFileViewer(mediaExtentionAction)) {
+      return;
+    }
+    await AppNavigationService.instance.pushPage(const FileViewer());
   }
 
   Widget _buildInitialAndroidHome() {
@@ -211,6 +249,7 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     _memoriesChangedSubscription.cancel();
     _peopleChangedSubscription.cancel();
     _changeCallbackDebouncer.cancelDebounceTimer();
+    _intentActionSubscription?.cancel();
     _widgetClickedSubscription?.cancel();
     super.dispose();
   }

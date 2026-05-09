@@ -1698,9 +1698,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "324f8fbdbc7ae6d326a6d541751b7a895a249089"
-      resolved-ref: "324f8fbdbc7ae6d326a6d541751b7a895a249089"
-      url: "https://github.com/ente-io/media_extension.git"
+      ref: "78772f7b8de59c3e8a942fec15d5510dc2e5ab98"
+      resolved-ref: "78772f7b8de59c3e8a942fec15d5510dc2e5ab98"
+      url: "https://github.com/laurens-pilot/media_extension.git"
     source: git
     version: "1.0.2"
   media_kit:
@@ -2137,7 +2137,7 @@ packages:
     source: hosted
     version: "3.7.1"
   photo_manager_image_provider:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: photo_manager_image_provider
       sha256: b6015b67b32f345f57cf32c126f871bced2501236c405aafaefa885f7c821e4f

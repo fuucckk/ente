@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import "dart:io";
 
@@ -6,6 +7,8 @@ import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:logging/logging.dart";
 import "package:media_extension/media_extension_action_types.dart";
+import "package:photo_manager/photo_manager.dart";
+import "package:photo_manager_image_provider/photo_manager_image_provider.dart";
 import "package:photo_view/photo_view.dart";
 import "package:photos/services/app_lifecycle_service.dart";
 import "package:photos/utils/exif_util.dart";
@@ -28,6 +31,11 @@ class FileViewerState extends State<FileViewer> {
   VideoPlayerController? videoController;
   final Logger _logger = Logger("FileViewer");
   double? aspectRatio;
+  Future<AssetEntity?>? mediaStoreAssetFuture;
+  bool get _isExternalView =>
+      widget.sharedMediaFile == null &&
+      action.action == IntentAction.view &&
+      (action.type == MediaType.image || action.type == MediaType.video);
 
   @override
   void initState() {
@@ -36,6 +44,8 @@ class FileViewerState extends State<FileViewer> {
     if (action.type == MediaType.video ||
         widget.sharedMediaFile?.type == SharedMediaType.video) {
       _initializeVideoController();
+    } else if (action.type == MediaType.image) {
+      mediaStoreAssetFuture = _loadMediaStoreAsset(action.data);
     }
   }
 
@@ -118,15 +128,90 @@ class FileViewerState extends State<FileViewer> {
     }
   }
 
+  Future<AssetEntity?>? _loadMediaStoreAsset(String? data) {
+    final uri = data == null ? null : Uri.tryParse(data);
+    final id = uri == null ? null : _mediaStoreAssetId(uri);
+    if (id == null) {
+      return null;
+    }
+    return AssetEntity.fromId(id);
+  }
+
+  String? _mediaStoreAssetId(Uri uri) {
+    if (uri.scheme != "content") {
+      return null;
+    }
+    if (uri.authority == "media") {
+      final mediaSegmentIndex = uri.pathSegments.lastIndexOf("media");
+      if (mediaSegmentIndex >= 0 &&
+          mediaSegmentIndex < uri.pathSegments.length - 1) {
+        return uri.pathSegments[mediaSegmentIndex + 1];
+      }
+    }
+    if (uri.authority == "com.android.providers.media.documents" &&
+        uri.pathSegments.isNotEmpty) {
+      final documentId = uri.pathSegments.last;
+      final id = documentId.split(":").last;
+      if (id.isNotEmpty) {
+        return id;
+      }
+    }
+    return null;
+  }
+
+  Widget _buildImageViewer() {
+    final sharedMediaPath = widget.sharedMediaFile?.path;
+    if (sharedMediaPath != null) {
+      return PhotoView(
+        imageProvider: Image.file(File(sharedMediaPath)).image,
+      );
+    }
+
+    final data = action.data;
+    if (data == null) {
+      _logger.severe("image data is null");
+      return const Icon(Icons.error);
+    }
+
+    final uri = Uri.tryParse(data);
+    if (uri?.scheme == "file") {
+      return PhotoView(
+        imageProvider: FileImage(File(uri!.toFilePath())),
+      );
+    }
+
+    final assetFuture = mediaStoreAssetFuture;
+    if (assetFuture != null) {
+      return FutureBuilder<AssetEntity?>(
+        future: assetFuture,
+        builder: (context, snapshot) {
+          final asset = snapshot.data;
+          if (asset == null) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              _logger.severe("failed to resolve media store image $data");
+              return const Icon(Icons.error);
+            }
+            return const CircularProgressIndicator();
+          }
+          return PhotoView(
+            imageProvider: AssetEntityImageProvider(asset),
+          );
+        },
+      );
+    }
+
+    return PhotoView(
+      imageProvider: MemoryImage(base64Decode(data)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     _logger.info("Building FileViewer");
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () {
-            SystemChannels.platform.invokeMethod('SystemNavigator.pop');
-          },
+          onPressed: _closeViewer,
           icon: const Icon(Icons.arrow_back),
         ),
       ),
@@ -137,11 +222,7 @@ class FileViewerState extends State<FileViewer> {
               child: (() {
                 if (action.type == MediaType.image ||
                     widget.sharedMediaFile?.type == SharedMediaType.image) {
-                  return PhotoView(
-                    imageProvider: widget.sharedMediaFile?.path != null
-                        ? Image.file(File(widget.sharedMediaFile!.path)).image
-                        : MemoryImage(base64Decode(action.data!)),
-                  );
+                  return _buildImageViewer();
                 } else if (action.type == MediaType.video ||
                     widget.sharedMediaFile?.type == SharedMediaType.video) {
                   return controller != null
@@ -159,5 +240,21 @@ class FileViewerState extends State<FileViewer> {
         ],
       ),
     );
+    if (!_isExternalView) {
+      return scaffold;
+    }
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          unawaited(_closeViewer());
+        }
+      },
+      child: scaffold,
+    );
+  }
+
+  Future<void> _closeViewer() async {
+    await SystemChannels.platform.invokeMethod('SystemNavigator.pop');
   }
 }
