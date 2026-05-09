@@ -1635,6 +1635,7 @@ pub async fn llm_download_model_files(
         llm::download_llm_model_files(
             targets,
             move |progress| {
+                log_download_metrics(&progress);
                 let payload = tauri_download_progress(progress);
                 let _ = progress_window.emit("llm-download-progress", payload);
             },
@@ -1697,6 +1698,35 @@ fn download_progress_status(progress: &llm::LlmModelDownloadProgress) -> String 
     }
 }
 
+fn log_download_metrics(progress: &llm::LlmModelDownloadProgress) {
+    if progress.file_complete {
+        logging::log(
+            "LLMDownload",
+            format!(
+                "file_complete label={} bytes={} elapsed_ms={} rate={} retries={}",
+                progress.label,
+                progress.file_downloaded_bytes,
+                progress.file_elapsed_ms,
+                format_rate(progress.file_bytes_per_second),
+                progress.file_retry_count
+            ),
+        );
+    }
+
+    if progress.complete {
+        logging::log(
+            "LLMDownload",
+            format!(
+                "complete bytes={} elapsed_ms={} rate={} retries={}",
+                progress.downloaded_bytes,
+                progress.elapsed_ms,
+                format_rate(progress.bytes_per_second),
+                progress.retry_count
+            ),
+        );
+    }
+}
+
 fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut value = bytes as f64;
@@ -1710,6 +1740,13 @@ fn format_bytes(bytes: u64) -> String {
     } else {
         format!("{value:.1} {}", UNITS[unit])
     }
+}
+
+fn format_rate(bytes_per_second: f64) -> String {
+    if !bytes_per_second.is_finite() || bytes_per_second <= 0.0 {
+        return "0 B/s".to_string();
+    }
+    format!("{}/s", format_bytes(bytes_per_second.round() as u64))
 }
 
 #[tauri::command]

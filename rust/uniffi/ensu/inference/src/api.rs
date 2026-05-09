@@ -124,6 +124,14 @@ pub struct LlmModelDownloadProgress {
     pub file_downloaded_bytes: i64,
     pub file_total_bytes: Option<i64>,
     pub percentage: f64,
+    pub elapsed_ms: i64,
+    pub bytes_per_second: f64,
+    pub file_elapsed_ms: i64,
+    pub file_bytes_per_second: f64,
+    pub retry_count: i32,
+    pub file_retry_count: i32,
+    pub file_complete: bool,
+    pub complete: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Enum)]
@@ -311,6 +319,14 @@ impl From<core::LlmModelDownloadProgress> for LlmModelDownloadProgress {
             file_downloaded_bytes: u64_to_i64(value.file_downloaded_bytes),
             file_total_bytes: value.file_total_bytes.map(u64_to_i64),
             percentage: value.percentage,
+            elapsed_ms: u64_to_i64(value.elapsed_ms),
+            bytes_per_second: value.bytes_per_second,
+            file_elapsed_ms: u64_to_i64(value.file_elapsed_ms),
+            file_bytes_per_second: value.file_bytes_per_second,
+            retry_count: u32_to_i32(value.retry_count),
+            file_retry_count: u32_to_i32(value.file_retry_count),
+            file_complete: value.file_complete,
+            complete: value.complete,
         }
     }
 }
@@ -337,6 +353,10 @@ impl From<core::GenerateEvent> for GenerateEvent {
 
 fn u64_to_i64(value: u64) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
+}
+
+fn u32_to_i32(value: u32) -> i32 {
+    i32::try_from(value).unwrap_or(i32::MAX)
 }
 
 struct CallbackSink {

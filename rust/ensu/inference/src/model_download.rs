@@ -31,6 +31,43 @@ pub struct LlmModelDownloadProgress {
     pub file_downloaded_bytes: u64,
     pub file_total_bytes: Option<u64>,
     pub percentage: f64,
+    pub elapsed_ms: u64,
+    pub bytes_per_second: f64,
+    pub file_elapsed_ms: u64,
+    pub file_bytes_per_second: f64,
+    pub retry_count: u32,
+    pub file_retry_count: u32,
+    pub file_complete: bool,
+    pub complete: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct DownloadProgressMetrics {
+    elapsed_ms: u64,
+    bytes_per_second: f64,
+    file_elapsed_ms: u64,
+    file_bytes_per_second: f64,
+    retry_count: u32,
+    file_retry_count: u32,
+    file_complete: bool,
+    complete: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FileDownloadProgress {
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    network_downloaded_bytes: u64,
+    elapsed: Duration,
+    retry_count: u32,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FileDownloadReport {
+    final_size: u64,
+    network_downloaded_bytes: u64,
+    elapsed: Duration,
+    retry_count: u32,
 }
 
 pub fn download_llm_model_files(
@@ -63,6 +100,7 @@ async fn download_llm_model_files_async(
         .connect_timeout(CONNECT_TIMEOUT)
         .build()
         .map_err(|err| err.to_string())?;
+    let download_started_at = Instant::now();
     let mut file_totals = Vec::with_capacity(targets.len());
 
     for target in &targets {
@@ -89,6 +127,8 @@ async fn download_llm_model_files_async(
             total.map_or(existing, |value| existing.min(value))
         })
         .sum::<u64>();
+    let mut network_downloaded_so_far = 0u64;
+    let mut completed_retry_count = 0u32;
 
     emit_combined_progress(
         "Preparing downloads",
@@ -96,6 +136,7 @@ async fn download_llm_model_files_async(
         total_bytes,
         0,
         None,
+        DownloadProgressMetrics::default(),
         &mut on_progress,
     );
 
@@ -113,18 +154,19 @@ async fn download_llm_model_files_async(
         let bytes_before_file = downloaded_so_far.saturating_sub(existing_for_file);
         let expected_file_total = file_totals.get(index).copied().flatten();
 
-        let final_file_size = download_llm_model_file(
+        let file_report = download_llm_model_file(
             &client,
             target,
             &destination,
             expected_file_total,
-            |file_downloaded, file_total| {
-                let overall_downloaded = bytes_before_file.saturating_add(file_downloaded);
+            |file_progress| {
+                let overall_downloaded =
+                    bytes_before_file.saturating_add(file_progress.downloaded_bytes);
                 let overall_total = total_bytes.or_else(|| {
                     let mut known_total = 0u64;
                     for (known_index, total) in file_totals.iter().enumerate() {
                         known_total += if known_index == index {
-                            file_total.unwrap_or(0)
+                            file_progress.total_bytes.unwrap_or(0)
                         } else {
                             total.unwrap_or(0)
                         };
@@ -135,8 +177,19 @@ async fn download_llm_model_files_async(
                     &target.label,
                     overall_downloaded,
                     overall_total,
-                    file_downloaded,
-                    file_total,
+                    file_progress.downloaded_bytes,
+                    file_progress.total_bytes,
+                    progress_metrics(
+                        download_started_at.elapsed(),
+                        network_downloaded_so_far
+                            .saturating_add(file_progress.network_downloaded_bytes),
+                        file_progress.elapsed,
+                        file_progress.network_downloaded_bytes,
+                        completed_retry_count.saturating_add(file_progress.retry_count),
+                        file_progress.retry_count,
+                        false,
+                        false,
+                    ),
                     &mut on_progress,
                 );
             },
@@ -144,7 +197,29 @@ async fn download_llm_model_files_async(
         )
         .await?;
 
-        downloaded_so_far = bytes_before_file.saturating_add(final_file_size);
+        downloaded_so_far = bytes_before_file.saturating_add(file_report.final_size);
+        network_downloaded_so_far =
+            network_downloaded_so_far.saturating_add(file_report.network_downloaded_bytes);
+        completed_retry_count = completed_retry_count.saturating_add(file_report.retry_count);
+
+        emit_combined_progress(
+            &target.label,
+            downloaded_so_far,
+            total_bytes.or(Some(downloaded_so_far)),
+            file_report.final_size,
+            expected_file_total.or(Some(file_report.final_size)),
+            progress_metrics(
+                download_started_at.elapsed(),
+                network_downloaded_so_far,
+                file_report.elapsed,
+                file_report.network_downloaded_bytes,
+                completed_retry_count,
+                file_report.retry_count,
+                true,
+                false,
+            ),
+            &mut on_progress,
+        );
     }
 
     emit_combined_progress(
@@ -153,6 +228,16 @@ async fn download_llm_model_files_async(
         total_bytes.or(Some(downloaded_so_far)),
         0,
         None,
+        progress_metrics(
+            download_started_at.elapsed(),
+            network_downloaded_so_far,
+            Duration::ZERO,
+            0,
+            completed_retry_count,
+            0,
+            false,
+            true,
+        ),
         &mut on_progress,
     );
 
@@ -164,15 +249,18 @@ async fn download_llm_model_file(
     target: &LlmModelDownloadTarget,
     destination: &Path,
     expected_file_total: Option<u64>,
-    mut on_progress: impl FnMut(u64, Option<u64>),
+    mut on_progress: impl FnMut(FileDownloadProgress),
     is_cancelled: &impl Fn() -> bool,
-) -> Result<u64, String> {
+) -> Result<FileDownloadReport, String> {
     let parent = destination
         .parent()
         .ok_or_else(|| format!("Invalid destination path: {}", destination.display()))?;
     fs::create_dir_all(parent).map_err(|err| err.to_string())?;
 
     let tmp_path = tmp_path_for(destination);
+    let file_started_at = Instant::now();
+    let mut network_downloaded_bytes = 0u64;
+    let mut retry_count = 0u32;
 
     for attempt in 1..=MAX_ATTEMPTS {
         if is_cancelled() {
@@ -186,6 +274,7 @@ async fn download_llm_model_file(
                 if attempt == MAX_ATTEMPTS {
                     return Err(format!("Failed to download {}: {}", target.label, err));
                 }
+                retry_count = retry_count.saturating_add(1);
                 continue;
             }
         };
@@ -199,6 +288,7 @@ async fn download_llm_model_file(
                     if attempt == MAX_ATTEMPTS {
                         return Err(format!("Failed to download {}: {}", target.label, err));
                     }
+                    retry_count = retry_count.saturating_add(1);
                     continue;
                 }
             };
@@ -212,6 +302,7 @@ async fn download_llm_model_file(
                     response.status()
                 ));
             }
+            retry_count = retry_count.saturating_add(1);
             continue;
         }
 
@@ -219,6 +310,7 @@ async fn download_llm_model_file(
         if let Some(total) = file_total {
             if total <= resume_from {
                 let _ = fs::remove_file(&tmp_path);
+                retry_count = retry_count.saturating_add(1);
                 continue;
             }
         }
@@ -241,7 +333,13 @@ async fn download_llm_model_file(
         let mut last_progress = Instant::now();
         let mut retry_attempt = false;
 
-        on_progress(downloaded, file_total);
+        on_progress(FileDownloadProgress {
+            downloaded_bytes: downloaded,
+            total_bytes: file_total,
+            network_downloaded_bytes,
+            elapsed: file_started_at.elapsed(),
+            retry_count,
+        });
 
         loop {
             if is_cancelled() {
@@ -256,6 +354,7 @@ async fn download_llm_model_file(
                     if attempt == MAX_ATTEMPTS {
                         return Err(format!("Failed to download {}: {}", target.label, err));
                     }
+                    retry_count = retry_count.saturating_add(1);
                     retry_attempt = true;
                     break;
                 }
@@ -268,6 +367,7 @@ async fn download_llm_model_file(
                             READ_STALL_TIMEOUT.as_secs()
                         ));
                     }
+                    retry_count = retry_count.saturating_add(1);
                     retry_attempt = true;
                     break;
                 }
@@ -287,9 +387,16 @@ async fn download_llm_model_file(
 
             file.write_all(&chunk).map_err(|err| err.to_string())?;
             downloaded = downloaded.saturating_add(chunk.len() as u64);
+            network_downloaded_bytes = network_downloaded_bytes.saturating_add(chunk.len() as u64);
 
             if last_progress.elapsed() >= PROGRESS_INTERVAL {
-                on_progress(downloaded, file_total);
+                on_progress(FileDownloadProgress {
+                    downloaded_bytes: downloaded,
+                    total_bytes: file_total,
+                    network_downloaded_bytes,
+                    elapsed: file_started_at.elapsed(),
+                    retry_count,
+                });
                 last_progress = Instant::now();
             }
         }
@@ -302,7 +409,13 @@ async fn download_llm_model_file(
         file.flush().map_err(|err| err.to_string())?;
         drop(file);
 
-        on_progress(downloaded, file_total);
+        on_progress(FileDownloadProgress {
+            downloaded_bytes: downloaded,
+            total_bytes: file_total,
+            network_downloaded_bytes,
+            elapsed: file_started_at.elapsed(),
+            retry_count,
+        });
 
         if let Some(total) = file_total {
             if downloaded < total {
@@ -311,6 +424,7 @@ async fn download_llm_model_file(
                         "Download incomplete: expected {total} bytes, got {downloaded}"
                     ));
                 }
+                retry_count = retry_count.saturating_add(1);
                 continue;
             }
         }
@@ -338,7 +452,12 @@ async fn download_llm_model_file(
             ));
         }
 
-        return Ok(final_size);
+        return Ok(FileDownloadReport {
+            final_size,
+            network_downloaded_bytes,
+            elapsed: file_started_at.elapsed(),
+            retry_count,
+        });
     }
 
     Err("Failed to download model".to_string())
@@ -414,6 +533,7 @@ fn emit_combined_progress(
     total_bytes: Option<u64>,
     file_downloaded_bytes: u64,
     file_total_bytes: Option<u64>,
+    metrics: DownloadProgressMetrics,
     on_progress: &mut impl FnMut(LlmModelDownloadProgress),
 ) {
     let percentage = total_bytes
@@ -428,7 +548,50 @@ fn emit_combined_progress(
         file_downloaded_bytes,
         file_total_bytes,
         percentage,
+        elapsed_ms: metrics.elapsed_ms,
+        bytes_per_second: metrics.bytes_per_second,
+        file_elapsed_ms: metrics.file_elapsed_ms,
+        file_bytes_per_second: metrics.file_bytes_per_second,
+        retry_count: metrics.retry_count,
+        file_retry_count: metrics.file_retry_count,
+        file_complete: metrics.file_complete,
+        complete: metrics.complete,
     });
+}
+
+fn progress_metrics(
+    elapsed: Duration,
+    downloaded_bytes: u64,
+    file_elapsed: Duration,
+    file_downloaded_bytes: u64,
+    retry_count: u32,
+    file_retry_count: u32,
+    file_complete: bool,
+    complete: bool,
+) -> DownloadProgressMetrics {
+    DownloadProgressMetrics {
+        elapsed_ms: duration_ms(elapsed),
+        bytes_per_second: bytes_per_second(downloaded_bytes, elapsed),
+        file_elapsed_ms: duration_ms(file_elapsed),
+        file_bytes_per_second: bytes_per_second(file_downloaded_bytes, file_elapsed),
+        retry_count,
+        file_retry_count,
+        file_complete,
+        complete,
+    }
+}
+
+fn duration_ms(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+fn bytes_per_second(bytes: u64, elapsed: Duration) -> f64 {
+    let seconds = elapsed.as_secs_f64();
+    if seconds > 0.0 {
+        bytes as f64 / seconds
+    } else {
+        0.0
+    }
 }
 
 fn existing_download_bytes(destination: &Path) -> u64 {

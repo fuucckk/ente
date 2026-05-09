@@ -99,6 +99,7 @@ final class InferenceRsProvider {
     private let modelLoadGate = AsyncSerialGate()
     private let rustDownloadCancelLock = NSLock()
     private var rustDownloadCancelled = false
+    private let logger = EnsuLogging.shared.logger("InferenceRsProvider")
 
     init(modelDir: URL) {
         self.modelDir = modelDir
@@ -556,6 +557,7 @@ final class InferenceRsProvider {
             guard let self else { return }
             let callback = ModelDownloadCallbackSink(
                 onProgress: { progress in
+                    self.logDownloadMetrics(progress)
                     onProgress(progress.toInferenceProgress())
                 },
                 isCancelled: { [weak self] in
@@ -577,6 +579,28 @@ final class InferenceRsProvider {
         let cancelled = rustDownloadCancelled
         rustDownloadCancelLock.unlock()
         return cancelled
+    }
+
+    private func logDownloadMetrics(_ progress: LlmModelDownloadProgress) {
+        if progress.fileComplete {
+            logger.info(
+                "Model download file complete",
+                details: "label=\(progress.label) bytes=\(progress.fileDownloadedBytes) elapsedMs=\(progress.fileElapsedMs) rate=\(formatRate(progress.fileBytesPerSecond)) retries=\(progress.fileRetryCount)"
+            )
+        }
+        if progress.complete {
+            logger.info(
+                "Model download complete",
+                details: "bytes=\(progress.downloadedBytes) elapsedMs=\(progress.elapsedMs) rate=\(formatRate(progress.bytesPerSecond)) retries=\(progress.retryCount)"
+            )
+        }
+    }
+
+    private func formatRate(_ bytesPerSecond: Double) -> String {
+        guard bytesPerSecond.isFinite, bytesPerSecond > 0 else {
+            return "0 B/s"
+        }
+        return "\(Int64(bytesPerSecond).formattedFileSize)/s"
     }
 }
 
