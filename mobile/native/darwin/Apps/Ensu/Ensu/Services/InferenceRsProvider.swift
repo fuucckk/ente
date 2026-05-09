@@ -97,6 +97,8 @@ final class InferenceRsProvider {
     private var backendInitialized = false
     private var currentJobId: Int64?
     private let modelLoadGate = AsyncSerialGate()
+    private let rustDownloadCancelLock = NSLock()
+    private var rustDownloadCancelled = false
 
     init(modelDir: URL) {
         self.modelDir = modelDir
@@ -155,8 +157,17 @@ final class InferenceRsProvider {
 
         if !downloads.isEmpty {
             onProgress(InferenceDownloadProgress(percent: 0, status: "Starting download..."))
-            await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
-            try await waitForDownloads(expectedTargets, onProgress: onProgress)
+            do {
+                await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
+                try await waitForDownloads(expectedTargets, onProgress: onProgress)
+            } catch {
+                if error is CancellationError {
+                    await downloadManager.cancelAllDownloads()
+                    throw error
+                }
+                await downloadManager.cancelAllDownloads()
+                try await downloadWithRust(expectedTargets, onProgress: onProgress)
+            }
         }
 
         onProgress(InferenceDownloadProgress(percent: 100, status: "Loading model..."))
@@ -302,6 +313,7 @@ final class InferenceRsProvider {
     }
 
     func cancelDownload() {
+        setRustDownloadCancelled(true)
         Task {
             await downloadManager.cancelAllDownloads()
         }
@@ -530,6 +542,42 @@ final class InferenceRsProvider {
             try await Task.sleep(nanoseconds: 500_000_000)
         }
     }
+
+    private func downloadWithRust(
+        _ expectedTargets: [DownloadTarget],
+        onProgress: @escaping (InferenceDownloadProgress) -> Void
+    ) async throws {
+        setRustDownloadCancelled(false)
+        let targets = expectedTargets.map {
+            LlmModelDownloadTarget(label: $0.label, url: $0.url, destinationPath: $0.destination.path)
+        }
+
+        try await Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let callback = ModelDownloadCallbackSink(
+                onProgress: { progress in
+                    onProgress(progress.toInferenceProgress())
+                },
+                isCancelled: { [weak self] in
+                    self?.isRustDownloadCancelled() ?? true
+                }
+            )
+            try downloadLlmModelFiles(targets: targets, callback: callback)
+        }.value
+    }
+
+    private func setRustDownloadCancelled(_ cancelled: Bool) {
+        rustDownloadCancelLock.lock()
+        rustDownloadCancelled = cancelled
+        rustDownloadCancelLock.unlock()
+    }
+
+    private func isRustDownloadCancelled() -> Bool {
+        rustDownloadCancelLock.lock()
+        let cancelled = rustDownloadCancelled
+        rustDownloadCancelLock.unlock()
+        return cancelled
+    }
 }
 
 private final class CallbackSink: GenerateEventCallback, @unchecked Sendable {
@@ -541,5 +589,45 @@ private final class CallbackSink: GenerateEventCallback, @unchecked Sendable {
 
     func onEvent(event: GenerateEvent) {
         handler(event)
+    }
+}
+
+private final class ModelDownloadCallbackSink: LlmModelDownloadCallback, @unchecked Sendable {
+    private let onProgressHandler: (LlmModelDownloadProgress) -> Void
+    private let isCancelledHandler: () -> Bool
+
+    init(
+        onProgress: @escaping (LlmModelDownloadProgress) -> Void,
+        isCancelled: @escaping () -> Bool
+    ) {
+        self.onProgressHandler = onProgress
+        self.isCancelledHandler = isCancelled
+    }
+
+    func onProgress(progress: LlmModelDownloadProgress) {
+        onProgressHandler(progress)
+    }
+
+    func isCancelled() -> Bool {
+        isCancelledHandler()
+    }
+}
+
+private extension LlmModelDownloadProgress {
+    func toInferenceProgress() -> InferenceDownloadProgress {
+        let total = totalBytes.flatMap { $0 > 0 ? $0 : nil }
+        let percent: Int
+        let status: String
+        if let total {
+            percent = min(99, max(0, Int((Double(downloadedBytes) / Double(total)) * 100.0)))
+            status = "Downloading... \(downloadedBytes.formattedFileSize) / \(total.formattedFileSize)"
+        } else if fileDownloadedBytes > 0 {
+            percent = 0
+            status = "Downloading \(label.lowercased())... \(fileDownloadedBytes.formattedFileSize)"
+        } else {
+            percent = 0
+            status = "Downloading \(label.lowercased())..."
+        }
+        return InferenceDownloadProgress(percent: percent, status: status)
     }
 }

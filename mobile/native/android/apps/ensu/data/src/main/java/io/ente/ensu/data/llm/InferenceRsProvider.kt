@@ -16,6 +16,9 @@ import io.ente.labs.inference_rs.GenerateChatRequest
 import io.ente.labs.inference_rs.GenerateEvent
 import io.ente.labs.inference_rs.GenerateEventCallback
 import io.ente.labs.inference_rs.GenerateSummary as NativeSummary
+import io.ente.labs.inference_rs.LlmModelDownloadCallback
+import io.ente.labs.inference_rs.LlmModelDownloadProgress
+import io.ente.labs.inference_rs.LlmModelDownloadTarget
 import io.ente.labs.inference_rs.ModelHandle
 import io.ente.labs.inference_rs.ModelLoadParams
 import io.ente.labs.inference_rs.initBackend
@@ -24,6 +27,7 @@ import io.ente.labs.inference_rs.createContext
 import io.ente.labs.inference_rs.generateChatStream
 import io.ente.labs.inference_rs.prewarmMultimodalContext
 import io.ente.labs.inference_rs.cancel
+import io.ente.labs.inference_rs.downloadLlmModelFiles
 import io.ente.labs.inference_rs.uniffiEnsureInitialized
 import io.ente.labs.inference_rs.InferenceException
 import kotlinx.coroutines.Dispatchers
@@ -449,15 +453,44 @@ class InferenceRsProvider(
         manualDownloadActive = true
         try {
             val targets = ModelDownloadSupport.expectedTargets(modelDir, target)
-            ModelDownloadSupport.downloadTargets(
-                httpClient,
+                .map {
+                    LlmModelDownloadTarget(
+                        label = it.label,
+                        url = it.url,
+                        destinationPath = it.destination.absolutePath
+                    )
+                }
+            downloadLlmModelFiles(
                 targets,
-                onProgress,
-                isCancelled = { manualDownloadCancelled }
+                object : LlmModelDownloadCallback {
+                    override fun onProgress(progress: LlmModelDownloadProgress) {
+                        onProgress(progress.toDomainProgress())
+                    }
+
+                    override fun isCancelled(): Boolean = manualDownloadCancelled
+                }
             )
         } finally {
             manualDownloadActive = false
         }
+    }
+
+    private fun LlmModelDownloadProgress.toDomainProgress(): DownloadProgress {
+        val downloaded = downloadedBytes.coerceAtLeast(0L)
+        val total = totalBytes?.takeIf { it > 0 }
+        val percent = if (total != null) {
+            ((downloaded * 100) / total).toInt().coerceIn(0, 99)
+        } else {
+            0
+        }
+        val status = if (total != null) {
+            "Downloading... ${io.ente.ensu.domain.util.formatBytes(downloaded)} / ${io.ente.ensu.domain.util.formatBytes(total)}"
+        } else if (fileDownloadedBytes > 0) {
+            "Downloading ${label.lowercase()}... ${io.ente.ensu.domain.util.formatBytes(fileDownloadedBytes)}"
+        } else {
+            "Downloading ${label.lowercase()}..."
+        }
+        return DownloadProgress(percent, status)
     }
 
     private fun ensureDownloadsEnqueued(target: LlmModelTarget) {

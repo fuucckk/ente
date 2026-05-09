@@ -109,6 +109,23 @@ pub struct GenerateSummary {
     pub total_time_ms: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct LlmModelDownloadTarget {
+    pub label: String,
+    pub url: String,
+    pub destination_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct LlmModelDownloadProgress {
+    pub label: String,
+    pub downloaded_bytes: i64,
+    pub total_bytes: Option<i64>,
+    pub file_downloaded_bytes: i64,
+    pub file_total_bytes: Option<i64>,
+    pub percentage: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Enum)]
 pub enum GenerateEvent {
     Text {
@@ -138,6 +155,12 @@ pub struct ContextHandle {
 #[uniffi::export(callback_interface)]
 pub trait GenerateEventCallback: Send + Sync {
     fn on_event(&self, event: GenerateEvent);
+}
+
+#[uniffi::export(callback_interface)]
+pub trait LlmModelDownloadCallback: Send + Sync {
+    fn on_progress(&self, progress: LlmModelDownloadProgress);
+    fn is_cancelled(&self) -> bool;
 }
 
 impl From<ModelLoadParams> for core::ModelLoadParams {
@@ -258,6 +281,16 @@ impl From<GenerateChatRequest> for core::GenerateChatRequest {
     }
 }
 
+impl From<LlmModelDownloadTarget> for core::LlmModelDownloadTarget {
+    fn from(value: LlmModelDownloadTarget) -> Self {
+        Self {
+            label: value.label,
+            url: value.url,
+            destination_path: value.destination_path,
+        }
+    }
+}
+
 impl From<core::GenerateSummary> for GenerateSummary {
     fn from(value: core::GenerateSummary) -> Self {
         Self {
@@ -265,6 +298,19 @@ impl From<core::GenerateSummary> for GenerateSummary {
             prompt_tokens: value.prompt_tokens,
             generated_tokens: value.generated_tokens,
             total_time_ms: value.total_time_ms,
+        }
+    }
+}
+
+impl From<core::LlmModelDownloadProgress> for LlmModelDownloadProgress {
+    fn from(value: core::LlmModelDownloadProgress) -> Self {
+        Self {
+            label: value.label,
+            downloaded_bytes: u64_to_i64(value.downloaded_bytes),
+            total_bytes: value.total_bytes.map(u64_to_i64),
+            file_downloaded_bytes: u64_to_i64(value.file_downloaded_bytes),
+            file_total_bytes: value.file_total_bytes.map(u64_to_i64),
+            percentage: value.percentage,
         }
     }
 }
@@ -287,6 +333,10 @@ impl From<core::GenerateEvent> for GenerateEvent {
             core::GenerateEvent::Error { job_id, message } => Self::Error { job_id, message },
         }
     }
+}
+
+fn u64_to_i64(value: u64) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
 }
 
 struct CallbackSink {
@@ -345,6 +395,23 @@ pub fn get_model_info(model: Arc<ModelHandle>) -> Result<ModelInfo, InferenceErr
 #[uniffi::export]
 pub fn get_ensu_defaults() -> EnsuDefaults {
     core::ensu_defaults().into()
+}
+
+#[uniffi::export]
+pub fn download_llm_model_files(
+    targets: Vec<LlmModelDownloadTarget>,
+    callback: Box<dyn LlmModelDownloadCallback>,
+) -> Result<(), InferenceError> {
+    let callback: Arc<dyn LlmModelDownloadCallback> = Arc::from(callback);
+    let progress_callback = Arc::clone(&callback);
+    let cancel_callback = Arc::clone(&callback);
+    let targets = targets.into_iter().map(Into::into).collect();
+    core::download_llm_model_files(
+        targets,
+        move |progress| progress_callback.on_progress(progress.into()),
+        move || cancel_callback.is_cancelled(),
+    )
+    .map_err(InferenceError::from)
 }
 
 #[uniffi::export]
