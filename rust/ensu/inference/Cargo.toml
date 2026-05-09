@@ -8,6 +8,7 @@ name = "inference_rs"
 crate-type = ["rlib"]
 
 [dependencies]
+futures-util = "0.3"
 parking_lot = "0.12"
 reqwest = { version = "0.12", default-features = false, features = ["http2", "charset", "system-proxy", "rustls-tls-webpki-roots"] }
 self_cell = "1"

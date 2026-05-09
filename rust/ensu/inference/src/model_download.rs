@@ -1,8 +1,11 @@
+use std::cell::RefCell;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use futures_util::future::try_join_all;
 use reqwest::header::RANGE;
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
@@ -70,6 +73,15 @@ struct FileDownloadReport {
     retry_count: u32,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct FileDownloadState {
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    network_downloaded_bytes: u64,
+    elapsed: Duration,
+    retry_count: u32,
+}
+
 pub fn download_llm_model_files(
     targets: Vec<LlmModelDownloadTarget>,
     on_progress: impl FnMut(LlmModelDownloadProgress),
@@ -89,7 +101,7 @@ pub fn download_llm_model_files(
 
 async fn download_llm_model_files_async(
     targets: Vec<LlmModelDownloadTarget>,
-    mut on_progress: impl FnMut(LlmModelDownloadProgress),
+    on_progress: impl FnMut(LlmModelDownloadProgress),
     is_cancelled: impl Fn() -> bool,
 ) -> Result<(), String> {
     if targets.is_empty() {
@@ -119,126 +131,131 @@ async fn download_llm_model_files_async(
         None
     };
 
-    let mut downloaded_so_far = targets
+    let file_states = targets
         .iter()
         .zip(&file_totals)
         .map(|(target, total)| {
             let existing = existing_download_bytes(Path::new(&target.destination_path));
-            total.map_or(existing, |value| existing.min(value))
+            FileDownloadState {
+                downloaded_bytes: total.map_or(existing, |value| existing.min(value)),
+                total_bytes: *total,
+                network_downloaded_bytes: 0,
+                elapsed: Duration::ZERO,
+                retry_count: 0,
+            }
         })
-        .sum::<u64>();
-    let mut network_downloaded_so_far = 0u64;
-    let mut completed_retry_count = 0u32;
+        .collect::<Vec<_>>();
+    let file_states = Rc::new(RefCell::new(file_states));
+    let on_progress = Rc::new(RefCell::new(on_progress));
 
-    emit_combined_progress(
+    emit_progress_from_states(
         "Preparing downloads",
-        downloaded_so_far,
         total_bytes,
-        0,
-        None,
         DownloadProgressMetrics::default(),
-        &mut on_progress,
+        None,
+        &file_states,
+        &on_progress,
     );
 
-    for (index, target) in targets.iter().enumerate() {
-        if is_cancelled() {
-            return Err("Download cancelled".to_string());
-        }
+    let mut downloads = Vec::new();
 
+    for (index, target) in targets.iter().enumerate() {
         let destination = PathBuf::from(&target.destination_path);
         if destination.exists() && is_valid_gguf_download(&destination) {
             continue;
         }
 
-        let existing_for_file = existing_download_bytes(&destination);
-        let bytes_before_file = downloaded_so_far.saturating_sub(existing_for_file);
         let expected_file_total = file_totals.get(index).copied().flatten();
+        let progress_states = Rc::clone(&file_states);
+        let progress_callback = Rc::clone(&on_progress);
+        let target_label = target.label.clone();
+        let download_started_at = download_started_at;
+        let client = &client;
+        let is_cancelled = &is_cancelled;
 
-        let file_report = download_llm_model_file(
-            &client,
-            target,
-            &destination,
-            expected_file_total,
-            |file_progress| {
-                let overall_downloaded =
-                    bytes_before_file.saturating_add(file_progress.downloaded_bytes);
-                let overall_total = total_bytes.or_else(|| {
-                    let mut known_total = 0u64;
-                    for (known_index, total) in file_totals.iter().enumerate() {
-                        known_total += if known_index == index {
-                            file_progress.total_bytes.unwrap_or(0)
-                        } else {
-                            total.unwrap_or(0)
-                        };
+        downloads.push(async move {
+            if is_cancelled() {
+                return Err("Download cancelled".to_string());
+            }
+
+            let file_report = download_llm_model_file(
+                client,
+                target,
+                &destination,
+                expected_file_total,
+                |file_progress| {
+                    {
+                        let mut states = progress_states.borrow_mut();
+                        if let Some(state) = states.get_mut(index) {
+                            state.downloaded_bytes = file_progress.downloaded_bytes;
+                            state.total_bytes = file_progress.total_bytes;
+                            state.network_downloaded_bytes = file_progress.network_downloaded_bytes;
+                            state.elapsed = file_progress.elapsed;
+                            state.retry_count = file_progress.retry_count;
+                        }
                     }
-                    (known_total > 0).then_some(known_total)
-                });
-                emit_combined_progress(
-                    &target.label,
-                    overall_downloaded,
-                    overall_total,
-                    file_progress.downloaded_bytes,
-                    file_progress.total_bytes,
-                    progress_metrics(
+
+                    let metrics = aggregate_progress_metrics(
                         download_started_at.elapsed(),
-                        network_downloaded_so_far
-                            .saturating_add(file_progress.network_downloaded_bytes),
-                        file_progress.elapsed,
-                        file_progress.network_downloaded_bytes,
-                        completed_retry_count.saturating_add(file_progress.retry_count),
-                        file_progress.retry_count,
+                        &progress_states,
+                        index,
                         false,
                         false,
-                    ),
-                    &mut on_progress,
-                );
-            },
-            &is_cancelled,
-        )
-        .await?;
+                    );
+                    emit_progress_from_states(
+                        &target_label,
+                        total_bytes,
+                        metrics,
+                        Some(index),
+                        &progress_states,
+                        &progress_callback,
+                    );
+                },
+                is_cancelled,
+            )
+            .await?;
 
-        downloaded_so_far = bytes_before_file.saturating_add(file_report.final_size);
-        network_downloaded_so_far =
-            network_downloaded_so_far.saturating_add(file_report.network_downloaded_bytes);
-        completed_retry_count = completed_retry_count.saturating_add(file_report.retry_count);
+            {
+                let mut states = progress_states.borrow_mut();
+                if let Some(state) = states.get_mut(index) {
+                    state.downloaded_bytes = file_report.final_size;
+                    state.total_bytes = expected_file_total.or(Some(file_report.final_size));
+                    state.network_downloaded_bytes = file_report.network_downloaded_bytes;
+                    state.elapsed = file_report.elapsed;
+                    state.retry_count = file_report.retry_count;
+                }
+            }
 
-        emit_combined_progress(
-            &target.label,
-            downloaded_so_far,
-            total_bytes.or(Some(downloaded_so_far)),
-            file_report.final_size,
-            expected_file_total.or(Some(file_report.final_size)),
-            progress_metrics(
+            let metrics = aggregate_progress_metrics(
                 download_started_at.elapsed(),
-                network_downloaded_so_far,
-                file_report.elapsed,
-                file_report.network_downloaded_bytes,
-                completed_retry_count,
-                file_report.retry_count,
+                &progress_states,
+                index,
                 true,
                 false,
-            ),
-            &mut on_progress,
-        );
+            );
+            emit_progress_from_states(
+                &target_label,
+                total_bytes,
+                metrics,
+                Some(index),
+                &progress_states,
+                &progress_callback,
+            );
+
+            Ok(file_report)
+        });
     }
 
-    emit_combined_progress(
+    let _reports = try_join_all(downloads).await?;
+    let complete_metrics = aggregate_complete_metrics(download_started_at.elapsed(), &file_states);
+
+    emit_progress_from_states(
         "Complete",
-        total_bytes.unwrap_or(downloaded_so_far),
-        total_bytes.or(Some(downloaded_so_far)),
-        0,
+        total_bytes.or_else(|| Some(downloaded_bytes_from_states(&file_states))),
+        complete_metrics,
         None,
-        progress_metrics(
-            download_started_at.elapsed(),
-            network_downloaded_so_far,
-            Duration::ZERO,
-            0,
-            completed_retry_count,
-            0,
-            false,
-            true,
-        ),
-        &mut on_progress,
+        &file_states,
+        &on_progress,
     );
 
     Ok(())
@@ -525,6 +542,120 @@ fn parse_content_range_total(value: &str) -> Option<u64> {
     } else {
         total.parse().ok()
     }
+}
+
+fn emit_progress_from_states<F: FnMut(LlmModelDownloadProgress)>(
+    label: &str,
+    total_bytes: Option<u64>,
+    metrics: DownloadProgressMetrics,
+    file_index: Option<usize>,
+    file_states: &Rc<RefCell<Vec<FileDownloadState>>>,
+    on_progress: &Rc<RefCell<F>>,
+) {
+    let states = file_states.borrow();
+    let downloaded_bytes = states
+        .iter()
+        .map(|state| state.downloaded_bytes)
+        .sum::<u64>();
+    let resolved_total_bytes = total_bytes.or_else(|| partial_total_from_states(&states));
+    let (file_downloaded_bytes, file_total_bytes) = file_index
+        .and_then(|index| states.get(index))
+        .map(|state| (state.downloaded_bytes, state.total_bytes))
+        .unwrap_or((0, None));
+    drop(states);
+
+    emit_combined_progress(
+        label,
+        downloaded_bytes,
+        resolved_total_bytes,
+        file_downloaded_bytes,
+        file_total_bytes,
+        metrics,
+        &mut *on_progress.borrow_mut(),
+    );
+}
+
+fn aggregate_progress_metrics(
+    elapsed: Duration,
+    file_states: &Rc<RefCell<Vec<FileDownloadState>>>,
+    file_index: usize,
+    file_complete: bool,
+    complete: bool,
+) -> DownloadProgressMetrics {
+    let states = file_states.borrow();
+    let network_downloaded_bytes = states
+        .iter()
+        .map(|state| state.network_downloaded_bytes)
+        .sum::<u64>();
+    let retry_count = states
+        .iter()
+        .map(|state| state.retry_count)
+        .fold(0u32, u32::saturating_add);
+    let file_state = states
+        .get(file_index)
+        .copied()
+        .unwrap_or(FileDownloadState {
+            downloaded_bytes: 0,
+            total_bytes: None,
+            network_downloaded_bytes: 0,
+            elapsed: Duration::ZERO,
+            retry_count: 0,
+        });
+    drop(states);
+
+    progress_metrics(
+        elapsed,
+        network_downloaded_bytes,
+        file_state.elapsed,
+        file_state.network_downloaded_bytes,
+        retry_count,
+        file_state.retry_count,
+        file_complete,
+        complete,
+    )
+}
+
+fn aggregate_complete_metrics(
+    elapsed: Duration,
+    file_states: &Rc<RefCell<Vec<FileDownloadState>>>,
+) -> DownloadProgressMetrics {
+    let states = file_states.borrow();
+    let network_downloaded_bytes = states
+        .iter()
+        .map(|state| state.network_downloaded_bytes)
+        .sum::<u64>();
+    let retry_count = states
+        .iter()
+        .map(|state| state.retry_count)
+        .fold(0u32, u32::saturating_add);
+    drop(states);
+
+    progress_metrics(
+        elapsed,
+        network_downloaded_bytes,
+        Duration::ZERO,
+        0,
+        retry_count,
+        0,
+        false,
+        true,
+    )
+}
+
+fn downloaded_bytes_from_states(file_states: &Rc<RefCell<Vec<FileDownloadState>>>) -> u64 {
+    file_states
+        .borrow()
+        .iter()
+        .map(|state| state.downloaded_bytes)
+        .sum()
+}
+
+fn partial_total_from_states(states: &[FileDownloadState]) -> Option<u64> {
+    let total = states
+        .iter()
+        .filter_map(|state| state.total_bytes)
+        .sum::<u64>();
+    (total > 0).then_some(total)
 }
 
 fn emit_combined_progress(

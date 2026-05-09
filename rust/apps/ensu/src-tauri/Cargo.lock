@@ -2761,6 +2761,7 @@ dependencies = [
 name = "inference_rs"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
  "llama-cpp-2",
  "parking_lot",
  "reqwest 0.12.28",
