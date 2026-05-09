@@ -3,7 +3,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures_util::future::try_join_all;
 use reqwest::header::RANGE;
@@ -73,6 +73,22 @@ struct FileDownloadReport {
     retry_count: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct DownloadMetadata {
+    url: String,
+    label: String,
+    size_bytes: u64,
+    etag: Option<String>,
+    last_modified: Option<String>,
+    downloaded_at_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+struct ResponseMetadata {
+    etag: Option<String>,
+    last_modified: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct FileDownloadState {
     downloaded_bytes: u64,
@@ -117,7 +133,7 @@ async fn download_llm_model_files_async(
 
     for target in &targets {
         let destination = Path::new(&target.destination_path);
-        if destination.exists() && is_valid_gguf_download(destination) {
+        if prepare_cached_download(target, destination) {
             file_totals.push(file_size(destination));
         } else {
             file_totals.push(fetch_content_length(&client, &target.url).await);
@@ -323,6 +339,7 @@ async fn download_llm_model_file(
             continue;
         }
 
+        let response_metadata = response_metadata(&response);
         let file_total = content_total(&response, resume_from).or(expected_file_total);
         if let Some(total) = file_total {
             if total <= resume_from {
@@ -468,6 +485,8 @@ async fn download_llm_model_file(
                 "Downloaded file size mismatch ({final_size} != {downloaded})"
             ));
         }
+
+        let _ = write_download_metadata(destination, target, final_size, Some(response_metadata));
 
         return Ok(FileDownloadReport {
             final_size,
@@ -723,6 +742,162 @@ fn bytes_per_second(bytes: u64, elapsed: Duration) -> f64 {
     } else {
         0.0
     }
+}
+
+fn prepare_cached_download(target: &LlmModelDownloadTarget, destination: &Path) -> bool {
+    if is_valid_gguf_download(destination) {
+        if !download_metadata_matches(destination, &target.url) {
+            let size = file_size(destination).unwrap_or(0);
+            let _ = write_download_metadata(destination, target, size, None);
+        }
+        return true;
+    }
+
+    if let Some(source) = find_reusable_cached_download(destination, &target.url) {
+        if copy_cached_download(&source, destination).is_ok() && is_valid_gguf_download(destination)
+        {
+            let size = file_size(destination).unwrap_or(0);
+            let source_metadata =
+                read_download_metadata(&source).map(|metadata| ResponseMetadata {
+                    etag: metadata.etag,
+                    last_modified: metadata.last_modified,
+                });
+            let _ = write_download_metadata(destination, target, size, source_metadata);
+            return true;
+        }
+        let _ = fs::remove_file(destination);
+        let _ = fs::remove_file(metadata_path_for(destination));
+    }
+
+    false
+}
+
+fn find_reusable_cached_download(destination: &Path, url: &str) -> Option<PathBuf> {
+    for root in cache_search_roots(destination) {
+        let entries = match fs::read_dir(root) {
+            Ok(entries) => entries,
+            Err(_) => continue,
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path == destination || !path.is_file() || is_sidecar_download_file(&path) {
+                continue;
+            }
+            if !is_valid_gguf_download(&path) {
+                continue;
+            }
+            if download_metadata_matches(&path, url) {
+                return Some(path);
+            }
+        }
+    }
+
+    None
+}
+
+fn cache_search_roots(destination: &Path) -> Vec<PathBuf> {
+    let Some(parent) = destination.parent() else {
+        return Vec::new();
+    };
+
+    let mut roots = vec![parent.to_path_buf()];
+    if parent.file_name().and_then(|name| name.to_str()) == Some("custom") {
+        if let Some(models_dir) = parent.parent() {
+            roots.push(models_dir.to_path_buf());
+        }
+    } else {
+        roots.push(parent.join("custom"));
+    }
+    roots
+}
+
+fn copy_cached_download(source: &Path, destination: &Path) -> Result<(), String> {
+    let parent = destination
+        .parent()
+        .ok_or_else(|| format!("Invalid destination path: {}", destination.display()))?;
+    fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+
+    let tmp_path = tmp_path_for(destination);
+    let _ = fs::remove_file(&tmp_path);
+    fs::copy(source, &tmp_path).map_err(|err| err.to_string())?;
+    if !is_valid_gguf_download(&tmp_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err("Cached model copy is invalid".to_string());
+    }
+    if destination.exists() {
+        fs::remove_file(destination).map_err(|err| err.to_string())?;
+    }
+    fs::rename(&tmp_path, destination).map_err(|err| err.to_string())
+}
+
+fn read_download_metadata(path: &Path) -> Option<DownloadMetadata> {
+    let text = fs::read_to_string(metadata_path_for(path)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+fn download_metadata_matches(path: &Path, url: &str) -> bool {
+    let Some(metadata) = read_download_metadata(path) else {
+        return false;
+    };
+    let Some(size) = file_size(path) else {
+        return false;
+    };
+    metadata.url == url && metadata.size_bytes == size && size >= MIN_GGUF_BYTES
+}
+
+fn write_download_metadata(
+    path: &Path,
+    target: &LlmModelDownloadTarget,
+    size_bytes: u64,
+    response_metadata: Option<ResponseMetadata>,
+) -> Result<(), String> {
+    let (etag, last_modified) = response_metadata
+        .map(|metadata| (metadata.etag, metadata.last_modified))
+        .unwrap_or((None, None));
+    let metadata = DownloadMetadata {
+        url: target.url.clone(),
+        label: target.label.clone(),
+        size_bytes,
+        etag,
+        last_modified,
+        downloaded_at_ms: now_ms(),
+    };
+    let text = serde_json::to_string_pretty(&metadata).map_err(|err| err.to_string())?;
+    fs::write(metadata_path_for(path), text).map_err(|err| err.to_string())
+}
+
+fn response_metadata(response: &Response) -> ResponseMetadata {
+    ResponseMetadata {
+        etag: response
+            .headers()
+            .get("ETag")
+            .and_then(|value| value.to_str().ok())
+            .map(ToString::to_string),
+        last_modified: response
+            .headers()
+            .get("Last-Modified")
+            .and_then(|value| value.to_str().ok())
+            .map(ToString::to_string),
+    }
+}
+
+fn metadata_path_for(path: &Path) -> PathBuf {
+    PathBuf::from(format!("{}.metadata.json", path.display()))
+}
+
+fn is_sidecar_download_file(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    name.ends_with(".tmp") || name.ends_with(".metadata.json")
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| u64::try_from(duration.as_millis()).unwrap_or(u64::MAX))
+        .unwrap_or(0)
 }
 
 fn existing_download_bytes(destination: &Path) -> u64 {
