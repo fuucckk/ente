@@ -10,23 +10,28 @@ import "package:locker/services/configuration.dart";
 ///
 /// In debug mode, authentication is bypassed.
 Future<void> openLegacyPage(BuildContext context) async {
-  final hasAuthenticated = kDebugMode ||
-      await LocalAuthenticationService.instance.requestLocalAuthentication(
-        context,
-        "Authenticate to manage legacy contacts",
-      );
-  if (hasAuthenticated && context.mounted) {
+  var hasAuthenticatedForLegacyFlow = kDebugMode;
+  if (!hasAuthenticatedForLegacyFlow) {
+    hasAuthenticatedForLegacyFlow =
+        await LocalAuthenticationService.instance.requestLocalAuthentication(
+      context,
+      "Authenticate to manage legacy contacts",
+    );
+  }
+  if (hasAuthenticatedForLegacyFlow && context.mounted) {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (BuildContext context) {
           return EmergencyPage(
             config: Configuration.instance,
             legacyKitAuthenticator: (context, reason) async {
-              if (kDebugMode) {
+              if (hasAuthenticatedForLegacyFlow) {
                 return true;
               }
-              return LocalAuthenticationService.instance
+              hasAuthenticatedForLegacyFlow = await LocalAuthenticationService
+                  .instance
                   .requestLocalAuthentication(context, reason);
+              return hasAuthenticatedForLegacyFlow;
             },
           );
         },
