@@ -148,8 +148,8 @@ dependencies:
   maps_launcher: 3.0.0+1
   media_extension:
     git:
-      url: https://github.com/laurens-pilot/media_extension.git
-      ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
+      url: https://github.com/ente-io/media_extension.git
+      ref: bc644285a9036c150bb5e381fe150f6ca0f264d4
   media_kit:
     git:
       url: https://github.com/media-kit/media-kit

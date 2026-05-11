@@ -1698,9 +1698,9 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
-      resolved-ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
-      url: "https://github.com/laurens-pilot/media_extension.git"
+      ref: bc644285a9036c150bb5e381fe150f6ca0f264d4
+      resolved-ref: bc644285a9036c150bb5e381fe150f6ca0f264d4
+      url: "https://github.com/ente-io/media_extension.git"
     source: git
     version: "1.0.2"
   media_kit:
