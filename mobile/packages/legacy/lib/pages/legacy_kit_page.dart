@@ -647,6 +647,10 @@ class _RecoveryBanner extends StatelessWidget {
     final bannerColor = colorScheme.isLightTheme
         ? const Color(0xFFFAEBEB)
         : const Color(0xFF292929);
+    const warningColor = Color(0xFFF63A3A);
+    final bodyTextColor = colorScheme.isLightTheme
+        ? colorScheme.textMuted
+        : const Color(0xFF999999);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -660,13 +664,11 @@ class _RecoveryBanner extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 18,
                 height: 20,
                 child: Center(
-                  child: LegacyKitRecoveryAlertIcon(
-                    color: colorScheme.warning400,
-                  ),
+                  child: LegacyKitAlertIcon(),
                 ),
               ),
               const SizedBox(width: 8),
@@ -674,7 +676,7 @@ class _RecoveryBanner extends StatelessWidget {
                 child: Text(
                   context.strings.legacyKitRecoveryAttemptInProgress,
                   style: textTheme.bodyBold.copyWith(
-                    color: colorScheme.warning400,
+                    color: warningColor,
                     height: 20 / 14,
                   ),
                 ),
@@ -685,7 +687,7 @@ class _RecoveryBanner extends StatelessWidget {
           Text(
             context.strings.legacyKitRecoveryAttemptMessage(availableAt),
             style: textTheme.mini.copyWith(
-              color: colorScheme.textMuted,
+              color: bodyTextColor,
               height: 16 / 12,
             ),
           ),
@@ -694,7 +696,7 @@ class _RecoveryBanner extends StatelessWidget {
             text: context.strings.rejectRecovery,
             height: 52,
             textStyle: textTheme.small.copyWith(height: 20 / 14),
-            backgroundColor: colorScheme.warning700,
+            backgroundColor: warningColor,
             onTap: () async => onBlockRecovery(),
           ),
         ],
