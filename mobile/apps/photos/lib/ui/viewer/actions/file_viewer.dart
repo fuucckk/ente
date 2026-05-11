@@ -187,6 +187,12 @@ class FileViewerState extends State<FileViewer> {
           mediaSegmentIndex < uri.pathSegments.length - 1) {
         return uri.pathSegments[mediaSegmentIndex + 1];
       }
+      if (uri.pathSegments.isNotEmpty) {
+        final id = uri.pathSegments.last;
+        if (int.tryParse(id) != null) {
+          return id;
+        }
+      }
     }
     if (uri.authority == "com.android.providers.media.documents" &&
         uri.pathSegments.isNotEmpty) {
@@ -418,7 +424,17 @@ class FileViewerState extends State<FileViewer> {
       );
     }
 
-    return _boundedPhotoView(MemoryImage(base64Decode(data)));
+    if (uri != null && uri.scheme.isNotEmpty) {
+      _logger.severe("unsupported image uri $data");
+      return const Icon(Icons.error);
+    }
+
+    try {
+      return _boundedPhotoView(MemoryImage(base64Decode(data)));
+    } catch (e, s) {
+      _logger.severe("failed to decode shared image payload", e, s);
+      return const Icon(Icons.error);
+    }
   }
 
   Widget _buildVideoViewer() {

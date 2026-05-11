@@ -32,8 +32,11 @@ class MediaReviewActivity : Activity() {
         if (reviewIntent.action !in reviewActions) {
             return Intent(reviewIntent)
         }
-        val uri = reviewIntent.data ?: reviewIntent.streamUri ?: return null
-        val type = reviewIntent.type ?: resolveMimeType(uri) ?: return null
+        val uri = reviewIntent.reviewUri ?: return null
+        val type = reviewIntent.type
+            ?: resolveMimeType(uri)
+            ?: reviewIntent.clipDataMimeType
+            ?: return null
         if (!type.isSupportedReviewMimeType()) {
             return null
         }
@@ -76,6 +79,33 @@ class MediaReviewActivity : Activity() {
     private val Intent.streamUri: Uri?
         @Suppress("DEPRECATION")
         get() = getParcelableExtra(Intent.EXTRA_STREAM)
+
+    private val Intent.reviewUri: Uri?
+        get() = data ?: streamUri ?: firstClipDataUri
+
+    private val Intent.firstClipDataUri: Uri?
+        get() {
+            val clipData = clipData ?: return null
+            for (index in 0 until clipData.itemCount) {
+                val uri = clipData.getItemAt(index).uri
+                if (uri != null) {
+                    return uri
+                }
+            }
+            return null
+        }
+
+    private val Intent.clipDataMimeType: String?
+        get() {
+            val description = clipData?.description ?: return null
+            for (index in 0 until description.mimeTypeCount) {
+                val mimeType = description.getMimeType(index)
+                if (mimeType.isSupportedReviewMimeType()) {
+                    return mimeType
+                }
+            }
+            return null
+        }
 
     private companion object {
         private const val ACTION_REVIEW = "android.provider.action.REVIEW"
