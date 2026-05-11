@@ -86,3 +86,24 @@ class LegacyKitClockIcon extends StatelessWidget {
     );
   }
 }
+
+class LegacyKitRowIcon extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const LegacyKitRowIcon({
+    required this.color,
+    this.size = 20,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HugeIcon(
+      icon: HugeIcons.strokeRoundedFileFavourite,
+      color: color,
+      size: size,
+      strokeWidth: _hugeIconStrokeWidth,
+    );
+  }
+}
