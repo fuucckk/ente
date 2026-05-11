@@ -455,7 +455,7 @@ export class LlmProvider {
     public cancelDownload() {
         if (this.downloadActive && this.backend.kind === "tauri") {
             void import("@tauri-apps/api/tauri").then(({ invoke }) =>
-                invoke("llm_cancel_model_download").catch((error) => {
+                invoke("llm_cancel_model_download").catch((error: unknown) => {
                     log.warn("LLM cancel model download failed", { error });
                 }),
             );
@@ -633,7 +633,10 @@ export class LlmProvider {
             totalBytes: 0,
         });
 
-        await this.downloadModelsNative([{ url, path: destPath, label: "Model" }], emit);
+        await this.downloadModelsNative(
+            [{ url, path: destPath, label: "Model" }],
+            emit,
+        );
     }
 
     private async downloadModelsNative(
