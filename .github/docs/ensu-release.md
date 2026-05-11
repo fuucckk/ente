@@ -46,13 +46,14 @@ The push updates the `ensu-v0.1.16-beta` prerelease.
 
 ## Draft release
 
-Tag the release branch commit you want to ship:
+Run the workflow on the release branch, setting the `release` flag:
 
 ```bash
-git switch release/ensu-v0.1.16
-git pull
-git tag ensu-v0.1.16
-git push origin ensu-v0.1.16
+gh workflow run ensu-release.yml --ref release/ensu-v0.1.16 -f release=true
 ```
 
-The workflow creates draft release `ensu-v0.1.16`, removes `ensu-v0.1.16-beta`, and deletes the release branch.
+The workflow creates the release commit and tag, creates draft release `ensu-v0.1.16`, removes `ensu-v0.1.16-beta`, and deletes the release branch.
+
+> [!NOTE]
+>
+> The draft release flow is safe to retry, so if the run fails due to a transient error, re-run the failed jobs in GitHub Actions.
