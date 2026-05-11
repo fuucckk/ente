@@ -655,12 +655,15 @@ class FilesDB with SqlDbBase {
   }
 
   Future<FreeableFileIDs> getFreeableFileIDs({
+    required int ownerID,
     Set<String> excludeLocalIDs = const {},
   }) async {
     final db = await instance.sqliteAsyncDB;
     final results = await db.getAll(
       'SELECT $columnLocalID, $columnUploadedFileID, $columnFileSize FROM $filesTable'
-      ' WHERE $columnLocalID IS NOT NULL AND ($columnUploadedFileID IS NOT NULL AND $columnUploadedFileID IS NOT -1)',
+      ' WHERE $columnLocalID IS NOT NULL AND ($columnOwnerID IS NULL OR $columnOwnerID = ?) '
+      'AND ($columnUploadedFileID IS NOT NULL AND $columnUploadedFileID IS NOT -1)',
+      [ownerID],
     );
     final Set<String> localIDs = <String>{};
     final Set<int> uploadedIDs = <int>{};

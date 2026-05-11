@@ -354,6 +354,10 @@ export const sidebar = [
                         link: "/auth/migration/authy/",
                     },
                     {
+                        text: "From Microsoft Authenticator",
+                        link: "/auth/migration/microsoft-authenticator/",
+                    },
+                    {
                         text: "From Steam",
                         link: "/auth/migration/steam/",
                     },
@@ -373,6 +377,7 @@ export const sidebar = [
         text: "Locker",
         items: [
             { text: "Introduction", link: "/locker/" },
+            { text: "Changelog", link: "/locker/changelog" },
             {
                 text: "Getting Started",
                 collapsed: true,

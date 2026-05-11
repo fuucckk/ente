@@ -9,6 +9,7 @@ import "package:ente_rust/ente_rust.dart";
 import "package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart";
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import "package:flutter/gestures.dart";
 import 'package:flutter/material.dart';
 import "package:flutter/rendering.dart";
 import "package:flutter/services.dart";
@@ -52,6 +53,7 @@ import "package:photos/services/wake_lock_service.dart";
 import "package:photos/src/rust/frb_generated.dart";
 import 'package:photos/ui/tools/app_lock.dart';
 import 'package:photos/ui/tools/lock_screen.dart';
+import "package:photos/utils/device_info.dart";
 import "package:photos/utils/email_util.dart";
 import 'package:photos/utils/file_uploader.dart';
 import "package:photos/utils/lock_screen_settings.dart";
@@ -76,6 +78,21 @@ Future<void>? _rustInitFuture;
 void main() async {
   debugRepaintRainbowEnabled = false;
   WidgetsFlutterBinding.ensureInitialized();
+  await initIsIPad();
+  if (isIPad) {
+    // Workaround for https://github.com/flutter/flutter/issues/177992
+    // iPadOS 26.1 sends fake (0,0) pointer events when taps happen near the
+    // status bar; cancel them so they don't dismiss popups, dialogs, etc.
+    // Once we upgrade to a Flutter version that includes the upstream fix,
+    // this workaround can be removed. The entire workaround (isIPad flag,
+    // initIsIPad, and this pointer guard) was introduced in a single commit
+    // so reverting that commit will cleanly remove it.
+    GestureBinding.instance.pointerRouter.addGlobalRoute((PointerEvent event) {
+      if (event is PointerDownEvent && event.position == Offset.zero) {
+        GestureBinding.instance.cancelPointer(event.pointer);
+      }
+    });
+  }
   FFmpegKitConfig.init().ignore();
   await rive.RiveNative.init();
   MediaKit.ensureInitialized();
@@ -243,6 +260,13 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
     await initializeDateFormatting(locale?.languageCode ?? "en");
     // only runs for android
     _logger.info("[BG TASK] home widget sync");
+    if (!isLocalGalleryMode &&
+        hasGrantedMLConsent &&
+        localSettings.isMLLocalIndexingEnabled) {
+      PersonService.init(entityService, MLDataDB.instance, prefs);
+      _logger
+          .info("[BG TASK] person service initialized for memories recompute");
+    }
     await _homeWidgetSync(true);
 
     if ((isLocalGalleryMode || flagService.enableMLInBackground) &&

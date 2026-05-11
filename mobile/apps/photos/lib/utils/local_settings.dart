@@ -289,11 +289,13 @@ class LocalSettings {
     await _setFlag(LocalGalleryFlag.mapEnabled, value);
   }
 
-  String get _mlLocalIndexingKey => appMode == AppMode.localGallery
+  bool get isLocalGalleryMode => appMode == AppMode.localGallery;
+
+  String get _mlLocalIndexingKey => isLocalGalleryMode
       ? _kLocalGalleryMLLocalIndexingEnabled
       : _kisMLLocalIndexingEnabled;
 
-  bool get _defaultMLLocalIndexingEnabled => appMode == AppMode.localGallery
+  bool get _defaultMLLocalIndexingEnabled => isLocalGalleryMode
       ? enoughRamForLocalGalleryLocalIndexing
       : enoughRamForLocalIndexing;
 
@@ -335,7 +337,7 @@ class LocalSettings {
   }
 
   bool get runMLDuringInteractionOverride =>
-      _prefs.getBool(_kRunMLDuringInteractionOverride) ?? false;
+      _prefs.getBool(_kRunMLDuringInteractionOverride) ?? isLocalGalleryMode;
 
   Future<void> setRunMLDuringInteractionOverride(bool value) async {
     await _prefs.setBool(_kRunMLDuringInteractionOverride, value);
@@ -480,8 +482,10 @@ class LocalSettings {
     await _prefs.setBool(_kBGDebugNotificationsEnabled, value);
   }
 
-  bool get isCFUploadProxyEnabled =>
-      _prefs.getBool(_kCFUploadProxyEnabled) ?? true;
+  /// User's explicit override for the Cloudflare upload proxy toggle.
+  /// `null` means the user has not chosen — callers should fall back to
+  /// `flagService.cloudflareUploadWorker` (the rollout default).
+  bool? get cfUploadProxyEnabled => _prefs.getBool(_kCFUploadProxyEnabled);
 
   Future<void> setCFUploadProxyEnabled(bool value) async {
     await _prefs.setBool(_kCFUploadProxyEnabled, value);

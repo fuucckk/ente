@@ -29,6 +29,7 @@ import "package:photos/service_locator.dart";
 import "package:photos/services/app_navigation_service.dart";
 import "package:photos/services/language_service.dart";
 import "package:photos/services/machine_learning/face_ml/person/person_service.dart";
+import "package:photos/services/machine_learning/ml_model_download_service.dart";
 import "package:photos/services/memories/photo_selector.dart";
 import "package:photos/services/notification_service.dart";
 import "package:photos/services/search_service.dart";
@@ -168,9 +169,19 @@ class MemoriesCacheService {
           ? MLDataDB.localGalleryInstance
           : MLDataDB.instance;
       final clipIndexed = await mlDataDB.getClipIndexedFileCount();
-      return clipIndexed >= SmartMemoriesService.minimumMemoryLength;
+      if (clipIndexed < SmartMemoriesService.minimumMemoryLength) {
+        return false;
+      }
+      if (!await MLModelDownloadService.instance.canLoadClipTextModel()) {
+        _logger.info(
+          "ML not ready for smart memories because CLIP text model is not "
+          "cached and high bandwidth connectivity is unavailable",
+        );
+        return false;
+      }
+      return true;
     } catch (e, s) {
-      _logger.warning("Failed to read CLIP indexed count", e, s);
+      _logger.warning("Failed to determine ML readiness", e, s);
       return false;
     }
   }
@@ -846,6 +857,12 @@ class MemoriesCacheService {
           newCache,
           mlEnabled: mlReady,
         );
+        if (nowResult.failed) {
+          _logger.warning(
+            "Skipping memories cache update because current calculation failed",
+          );
+          return;
+        }
         final carriedForwardTripEntries = List<ToShowMemory>.from(
           newCache.toShowMemories,
         );
@@ -859,6 +876,12 @@ class MemoriesCacheService {
           newCache,
           mlEnabled: mlReady,
         );
+        if (nextResult.failed) {
+          _logger.warning(
+            "Skipping memories cache update because next calculation failed",
+          );
+          return;
+        }
         w?.log("calculated new memories");
         final localIdToIntId = isLocalGalleryMode
             ? await _buildLocalIntIdMapForMemories([
