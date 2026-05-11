@@ -669,7 +669,7 @@ class LegacyKitPdfService {
   }
 
   String _displayCopyCode(String copyCode) {
-    const chunkSize = 36;
+    const chunkSize = 30;
     final compactCode = copyCode.replaceAll(RegExp(r"\s+"), "");
     final chunks = <String>[];
     for (var index = 0; index < compactCode.length; index += chunkSize) {
