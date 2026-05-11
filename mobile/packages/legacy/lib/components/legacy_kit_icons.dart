@@ -1,5 +1,4 @@
 import "package:flutter/widgets.dart";
-import "package:flutter_svg/flutter_svg.dart";
 import "package:hugeicons/hugeicons.dart";
 
 const double _hugeIconStrokeWidth = 1.5;
@@ -119,9 +118,8 @@ class LegacyKitAlertIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      "assets/legacy_kit_alert_02.svg",
-      package: "ente_legacy",
+    return Image.asset(
+      "assets/warning-red.png",
       width: size,
       height: size,
       fit: BoxFit.contain,
