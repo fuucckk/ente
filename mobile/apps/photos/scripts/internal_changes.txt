@@ -1,5 +1,5 @@
 Latest changes:
-
+- Aman: Batch large free up space deletes to avoid oversized OS delete requests
 
 Still behind internal flag:
 - Amrithesh: (I) ML/Pet recognition [Indexing]
