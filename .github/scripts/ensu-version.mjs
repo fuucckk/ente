@@ -66,7 +66,9 @@ function check() {
     expect("Android versionName", value(files.android, /versionName = "([^"]+)"/), version);
     expect("Info.plist", value(files.plist, /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/), version);
 
-    for (const match of read(files.xcode).matchAll(/MARKETING_VERSION = ([^;]+);/g)) {
+    const xcodeMarketingVersions = [...read(files.xcode).matchAll(/MARKETING_VERSION = ([^;]+);/g)];
+    if (!xcodeMarketingVersions.length) throw new Error("Xcode MARKETING_VERSION: no entries found");
+    for (const match of xcodeMarketingVersions) {
         expect("Xcode MARKETING_VERSION", match[1], version);
     }
 }

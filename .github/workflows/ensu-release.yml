@@ -28,14 +28,14 @@ jobs:
         runs-on: ubuntu-22.04
 
         outputs:
-            should_build: ${{ steps.cooldown.outputs.should_build || 'true' }}
-            commit_sha: ${{ steps.source.outputs.commit_sha }}
-            release_tag: ${{ steps.release.outputs.release_tag }}
-            release_name: ${{ steps.release.outputs.release_name }}
-            release_body: ${{ steps.release.outputs.release_body }}
-            release_draft: ${{ steps.release.outputs.release_draft }}
-            release_prerelease: ${{ steps.release.outputs.release_prerelease }}
-            short_sha: ${{ steps.source.outputs.short_sha }}
+            should_build: ${{ steps.prepare.outputs.should_build }}
+            commit_sha: ${{ steps.prepare.outputs.commit_sha }}
+            release_tag: ${{ steps.prepare.outputs.release_tag }}
+            release_name: ${{ steps.prepare.outputs.release_name }}
+            release_body: ${{ steps.prepare.outputs.release_body }}
+            release_draft: ${{ steps.prepare.outputs.release_draft }}
+            release_prerelease: ${{ steps.prepare.outputs.release_prerelease }}
+            short_sha: ${{ steps.prepare.outputs.short_sha }}
 
         steps:
             - name: Checkout code
@@ -43,58 +43,37 @@ jobs:
               with:
                   ref: ${{ github.ref_name }}
 
-            - name: Skip scheduled nightly during cooldown
-              id: cooldown
-              if: github.event_name == 'schedule'
+            - name: Prepare release
+              id: prepare
               shell: bash
               run: |
                   set -euo pipefail
 
-                  if git ls-remote --exit-code --heads origin 'release/ensu-v*' >/dev/null 2>&1; then
+                  if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]] && git ls-remote --exit-code --heads origin 'release/ensu-v*' >/dev/null 2>&1; then
                       echo "Active Ensu release branch found; skipping scheduled nightly"
                       echo "should_build=false" >> "${GITHUB_OUTPUT}"
-                  else
-                      echo "should_build=true" >> "${GITHUB_OUTPUT}"
+                      exit 0
                   fi
 
-            - name: Resolve source commit
-              if: steps.cooldown.outputs.should_build != 'false'
-              id: source
-              shell: bash
-              run: |
-                  set -euo pipefail
-
                   commit_sha="$(git rev-parse HEAD)"
-                  echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
-                  echo "short_sha=${commit_sha::7}" >> "${GITHUB_OUTPUT}"
-
-            - name: Check Ensu source versions
-              if: steps.cooldown.outputs.should_build != 'false'
-              id: version
-              shell: bash
-              run: |
-                  set -euo pipefail
 
                   node .github/scripts/ensu-version.mjs check
-                  node .github/scripts/ensu-version.mjs github-output >> "${GITHUB_OUTPUT}"
-
-            - name: Set release metadata
-              if: steps.cooldown.outputs.should_build != 'false'
-              id: release
-              shell: bash
-              env:
-                  SOURCE_VERSION: ${{ steps.version.outputs.version }}
-                  SOURCE_CHANNEL: ${{ steps.version.outputs.channel }}
-              run: |
-                  set -euo pipefail
+                  source_version=""
+                  source_channel=""
+                  while IFS='=' read -r key value; do
+                      case "${key}" in
+                          version) source_version="${value}" ;;
+                          channel) source_channel="${value}" ;;
+                      esac
+                  done < <(node .github/scripts/ensu-version.mjs github-output)
 
                   if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                      expected_tag="ensu-v${SOURCE_VERSION}"
+                      expected_tag="ensu-v${source_version}"
                       if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
-                          echo "::error::Tag ${GITHUB_REF_NAME} does not match source version ${SOURCE_VERSION}"
+                          echo "::error::Tag ${GITHUB_REF_NAME} does not match source version ${source_version}"
                           exit 1
                       fi
-                      if [[ "${SOURCE_CHANNEL}" != "stable" ]]; then
+                      if [[ "${source_channel}" != "stable" ]]; then
                           echo "::error::Stable releases require the Ensu source channel to be stable"
                           exit 1
                       fi
@@ -105,18 +84,21 @@ jobs:
                       RELEASE_DRAFT=true
                       RELEASE_PRERELEASE=false
                   else
-                      if [[ "${SOURCE_CHANNEL}" != "beta" ]]; then
+                      if [[ "${source_channel}" != "beta" ]]; then
                           echo "::error::Nightly releases require the Ensu source channel to be beta"
                           exit 1
                       fi
 
-                      RELEASE_TAG="ensu-v${SOURCE_VERSION}-beta"
+                      RELEASE_TAG="ensu-v${source_version}-beta"
                       RELEASE_NAME="${RELEASE_TAG}"
                       RELEASE_BODY="Nightly builds"
                       RELEASE_DRAFT=false
                       RELEASE_PRERELEASE=true
                   fi
 
+                  echo "should_build=true" >> "${GITHUB_OUTPUT}"
+                  echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
+                  echo "short_sha=${commit_sha::7}" >> "${GITHUB_OUTPUT}"
                   echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
                   echo "release_name=${RELEASE_NAME}" >> "${GITHUB_OUTPUT}"
                   echo "release_body=${RELEASE_BODY}" >> "${GITHUB_OUTPUT}"

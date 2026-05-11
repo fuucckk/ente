@@ -6,7 +6,7 @@
 
 Nightly builds of `main` are automatically created every weekday morning (IST), and can also be created by running the workflow manually. These builds are attached to the `ensu-v0.1.16-beta` prerelease; each nightly keeps updating the same prerelease.
 
-## Start a cooldown
+## Cut a release branch
 
 ```sh
 git switch main
@@ -65,6 +65,8 @@ The workflow creates draft release `ensu-v0.1.16` and removes
 `ensu-v0.1.16-beta`.
 
 ## Cleanup
+
+Remove the release branch to resume normal nightly builds of `main`.
 
 ```sh
 git push origin --delete release/ensu-v0.1.16
