@@ -99,7 +99,7 @@ export interface Settings {
      *
      * See also `apps.custom-domain.cname` in `server/local.yaml`.
      *
-     * Default: "my.ente.io"
+     * Default: "my.ente.com"
      */
     customDomainCNAME: string;
 }
@@ -110,7 +110,7 @@ const createDefaultSettings = (): Settings => ({
     cfUploadProxyDisabled: false,
     castURL: "https://cast.ente.com",
     embedURL: "https://embed.ente.com",
-    customDomainCNAME: "my.ente.io",
+    customDomainCNAME: "my.ente.com",
 });
 
 /**
@@ -239,12 +239,12 @@ const setSettingsSnapshot = (snapshot: Settings) => {
  * Return `true` if this is a development build, and the current user (if any)
  * is marked as an "development" user.
  *
- * Emails that end in "@ente.io" are considered as dev users.
+ * Emails that end in "@ente.com" are considered as dev users.
  */
 export const isDevBuildAndUser = () => isDevBuild && isDevUserViaEmail();
 
 const isDevUserViaEmail = () =>
-    !!savedPartialLocalUser()?.email?.endsWith("@ente.io");
+    !!savedPartialLocalUser()?.email?.endsWith("@ente.com");
 
 /**
  * Persist the user's custom domain preference both locally and on remote.
