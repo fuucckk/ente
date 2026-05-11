@@ -31,7 +31,7 @@ class LegacyKitPdfService {
   static const PdfColor _background = PdfColor.fromInt(0xFFFAFAFA);
   static const PdfColor _green = PdfColor.fromInt(0xFF08C225);
   static const PdfColor _blue = PdfColor.fromInt(0xFF1071FF);
-  static const PdfColor _heroBadge = PdfColor.fromInt(0xFF0A48A3);
+  static const double _heroBadgeOpacity = 0.36;
   static const PdfColor _dark = PdfColor.fromInt(0xFF212121);
   static const PdfColor _black = PdfColor.fromInt(0xFF000000);
   static const PdfColor _white = PdfColor.fromInt(0xFFFFFFFF);
@@ -463,15 +463,22 @@ class LegacyKitPdfService {
   }
 
   pw.Widget _legacyKitBadge(String accountEmail, _SheetAssets assets) {
-    return pw.Container(
+    return pw.SizedBox(
       width: 278,
       height: 32,
-      decoration: const pw.BoxDecoration(
-        color: _heroBadge,
-        borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
-      ),
       child: pw.Stack(
         children: [
+          pw.Positioned.fill(
+            child: pw.Opacity(
+              opacity: _heroBadgeOpacity,
+              child: pw.Container(
+                decoration: const pw.BoxDecoration(
+                  color: _black,
+                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
+                ),
+              ),
+            ),
+          ),
           pw.Positioned(
             left: 15,
             top: 10,
