@@ -410,13 +410,13 @@ class UserService {
       await dialog.hide();
       Widget page;
       final String passkeySessionID = responseData["passkeySessionID"] ?? "";
-      final String accountsUrl = responseData["accountsUrl"] ?? kAccountsUrl;
       String twoFASessionID = responseData["twoFactorSessionID"] ?? "";
       if (twoFASessionID.isEmpty &&
           responseData["twoFactorSessionIDV2"] != null) {
         twoFASessionID = responseData["twoFactorSessionIDV2"];
       }
       if (passkeySessionID.isNotEmpty) {
+        final accountsUrl = responseData["accountsUrl"] as String;
         page = PasskeyPage(
           passkeySessionID,
           totp2FASessionID: twoFASessionID,
@@ -686,10 +686,10 @@ class UserService {
       twoFASessionID = responseData["twoFactorSessionIDV2"];
     }
     final String passkeySessionID = responseData["passkeySessionID"] ?? "";
-    final String accountsUrl = responseData["accountsUrl"] ?? kAccountsUrl;
 
     Configuration.instance.setVolatilePassword(userPassword);
     if (passkeySessionID.isNotEmpty) {
+      final accountsUrl = responseData["accountsUrl"] as String;
       page = PasskeyPage(
         passkeySessionID,
         totp2FASessionID: twoFASessionID,
