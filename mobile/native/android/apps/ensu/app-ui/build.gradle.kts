@@ -87,7 +87,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 33
-        versionName = "0.1.15"
+        versionName = "0.1.16"
         buildConfigField("String", "API_ENDPOINT", "\"$apiEndpointOverride\"")
     }
 
