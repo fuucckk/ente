@@ -1,4 +1,5 @@
 import "package:flutter/widgets.dart";
+import "package:flutter_svg/flutter_svg.dart";
 import "package:hugeicons/hugeicons.dart";
 
 const double _hugeIconStrokeWidth = 1.5;
@@ -109,22 +110,21 @@ class LegacyKitRowIcon extends StatelessWidget {
 }
 
 class LegacyKitAlertIcon extends StatelessWidget {
-  final Color color;
   final double size;
 
   const LegacyKitAlertIcon({
-    required this.color,
     this.size = 18,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    return HugeIcon(
-      icon: HugeIcons.strokeRoundedAlert02,
-      color: color,
-      size: size,
-      strokeWidth: _hugeIconStrokeWidth,
+    return SvgPicture.asset(
+      "assets/legacy_kit_alert_02.svg",
+      package: "ente_legacy",
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
     );
   }
 }

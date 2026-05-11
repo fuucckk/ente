@@ -1068,15 +1068,13 @@ class _LegacyKitLeadingIcon extends StatelessWidget {
             ),
           ),
           if (showWarningBadge)
-            Positioned(
+            const Positioned(
               left: 20,
               top: 20,
               child: SizedBox.square(
                 dimension: 16,
                 child: Center(
-                  child: LegacyKitAlertIcon(
-                    color: colorScheme.warning400,
-                  ),
+                  child: LegacyKitAlertIcon(),
                 ),
               ),
             ),
@@ -1095,24 +1093,34 @@ class _WarningBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = getEnteColorScheme(context);
     final textTheme = getEnteTextTheme(context);
+    final backgroundColor = colorScheme.isLightTheme
+        ? const Color(0xFFFAEBEB)
+        : const Color(0xFF292929);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.warning400.withValues(alpha: 0.13),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          LegacyKitAlertIcon(
-            color: colorScheme.warning400,
-            size: 32,
+          const SizedBox(
+            width: 18,
+            height: 20,
+            child: Center(
+              child: LegacyKitAlertIcon(),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: textTheme.bodyBold.copyWith(color: colorScheme.warning400),
+              style: textTheme.bodyBold.copyWith(
+                color: colorScheme.warning400,
+                height: 20 / 14,
+              ),
             ),
           ),
         ],
