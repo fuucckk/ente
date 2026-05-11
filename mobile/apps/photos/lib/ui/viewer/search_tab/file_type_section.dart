@@ -194,16 +194,14 @@ class _FileTypeRecommendationState extends State<_FileTypeRecommendation> {
   @override
   Widget build(BuildContext context) {
     final fileTypeKey = widget.tile.assetKey;
-    final assetPath = knownTypesToAssetPath[fileTypeKey];
+    final assetPath = knownTypesToAssetPath[fileTypeKey]!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 68),
         child: GestureDetector(
           onTap: _onTap,
-          child: assetPath != null
-              ? Image.asset(assetPath)
-              : _UnknownFileTypeImage(fileTypeKey),
+          child: Image.asset(assetPath),
         ),
       ),
     );
@@ -225,43 +223,5 @@ class _FileTypeRecommendationState extends State<_FileTypeRecommendation> {
     } catch (e, s) {
       _logger.severe("Failed to resolve file type result", e, s);
     }
-  }
-}
-
-class _UnknownFileTypeImage extends StatelessWidget {
-  final String fileTypeKey;
-
-  const _UnknownFileTypeImage(this.fileTypeKey);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Image.asset(
-          "assets/type_unknown.png",
-        ),
-        Positioned(
-          bottom: 18,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 48),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                fileTypeKey,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontFamily: "Inter",
-                  color: Colors.white,
-                  letterSpacing: 0.75,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
