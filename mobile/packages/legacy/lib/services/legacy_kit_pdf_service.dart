@@ -20,6 +20,9 @@ class LegacyKitPdfService {
       "$_assetRoot/legacy_kit_sheet_ente_logo_black.svg";
   static const String _enteComBadgeAsset =
       "$_assetRoot/legacy_kit_sheet_ente_com_badge.svg";
+  static const String _personIconAsset =
+      "$_assetRoot/legacy_kit_sheet_person_icon.svg";
+  static const String _nunitoBlackAsset = "$_assetRoot/fonts/Nunito-Black.ttf";
   static const String _interRegularAsset = "assets/fonts/Inter-Regular.ttf";
   static const String _interMediumAsset = "assets/fonts/Inter-Medium.ttf";
   static const String _interBoldAsset = "assets/fonts/Inter-Bold.ttf";
@@ -28,6 +31,7 @@ class LegacyKitPdfService {
   static const PdfColor _background = PdfColor.fromInt(0xFFFAFAFA);
   static const PdfColor _green = PdfColor.fromInt(0xFF08C225);
   static const PdfColor _blue = PdfColor.fromInt(0xFF1071FF);
+  static const PdfColor _heroBadge = PdfColor.fromInt(0xFF0A48A3);
   static const PdfColor _dark = PdfColor.fromInt(0xFF212121);
   static const PdfColor _black = PdfColor.fromInt(0xFF000000);
   static const PdfColor _white = PdfColor.fromInt(0xFFFFFFFF);
@@ -69,6 +73,7 @@ class LegacyKitPdfService {
     final interRegular = await _loadFont(_interRegularAsset);
     final interMedium = await _loadFont(_interMediumAsset);
     final interBold = await _loadFont(_interBoldAsset);
+    final nunitoBlack = await _loadFont(_nunitoBlackAsset);
     final baseFont = interMedium ?? interRegular;
 
     return _SheetAssets(
@@ -78,6 +83,8 @@ class LegacyKitPdfService {
       logoSvg: await _loadSvg(_logoAsset),
       enteLogoBlackSvg: await _loadSvg(_enteLogoBlackAsset),
       enteComBadgeSvg: await _loadSvg(_enteComBadgeAsset),
+      personIconSvg: await _loadSvg(_personIconAsset),
+      nunitoBlack: nunitoBlack,
       theme: baseFont == null && interBold == null
           ? null
           : pw.ThemeData.withFont(
@@ -195,6 +202,7 @@ class LegacyKitPdfService {
                 style: pw.TextStyle(
                   color: _black,
                   fontSize: 15.7,
+                  font: assets.nunitoBlack,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -212,6 +220,7 @@ class LegacyKitPdfService {
                 style: pw.TextStyle(
                   color: _black,
                   fontSize: 20,
+                  font: assets.nunitoBlack,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -311,6 +320,7 @@ class LegacyKitPdfService {
           style: pw.TextStyle(
             color: const PdfColor.fromInt(0xFF1C1C1C),
             fontSize: 20,
+            font: assets.nunitoBlack,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
@@ -377,7 +387,7 @@ class LegacyKitPdfService {
             pw.Positioned(
               left: 24,
               top: 24,
-              child: _heroCopy(accountEmail, share),
+              child: _heroCopy(accountEmail, share, assets),
             ),
             if (assets.duckyImage != null)
               pw.Positioned(
@@ -396,7 +406,11 @@ class LegacyKitPdfService {
     );
   }
 
-  pw.Widget _heroCopy(String accountEmail, LegacyKitShare share) {
+  pw.Widget _heroCopy(
+    String accountEmail,
+    LegacyKitShare share,
+    _SheetAssets assets,
+  ) {
     return pw.SizedBox(
       width: 344,
       child: pw.Column(
@@ -416,43 +430,20 @@ class LegacyKitPdfService {
             style: pw.TextStyle(
               color: _white,
               fontSize: 32,
+              font: assets.nunitoBlack,
               fontWeight: pw.FontWeight.bold,
               lineSpacing: 0,
             ),
           ),
           pw.SizedBox(height: 12),
-          pw.Container(
-            width: 278,
-            height: 32,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 12),
-            decoration: const pw.BoxDecoration(
-              color: PdfColor(0, 0, 0, 0.36),
-              borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
-            ),
-            child: pw.Row(
-              children: [
-                _personIcon(),
-                pw.SizedBox(width: 6),
-                pw.Expanded(
-                  child: pw.Text(
-                    "Legacy Kit for $accountEmail",
-                    maxLines: 1,
-                    overflow: pw.TextOverflow.clip,
-                    style: const pw.TextStyle(
-                      color: _white,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _legacyKitBadge(accountEmail, assets),
           pw.SizedBox(height: 12),
           pw.Text(
             "Store this somewhere safe",
             style: pw.TextStyle(
               color: _white,
               fontSize: 16,
+              font: assets.nunitoBlack,
               fontWeight: pw.FontWeight.bold,
               lineSpacing: 3,
             ),
@@ -471,18 +462,67 @@ class LegacyKitPdfService {
     );
   }
 
-  pw.Widget _personIcon() {
-    return pw.SizedBox(
-      width: 12,
-      height: 12,
+  pw.Widget _legacyKitBadge(String accountEmail, _SheetAssets assets) {
+    return pw.Container(
+      width: 278,
+      height: 32,
+      decoration: const pw.BoxDecoration(
+        color: _heroBadge,
+        borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
+      ),
       child: pw.Stack(
         children: [
           pw.Positioned(
-            left: 4,
-            top: 2,
+            left: 15,
+            top: 10,
+            child: _legacyKitBadgeIcon(assets),
+          ),
+          pw.Positioned(
+            left: 31,
+            top: 8,
+            child: pw.SizedBox(
+              width: 237,
+              height: 16,
+              child: pw.Center(
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  child: pw.Text(
+                    "Legacy Kit for $accountEmail",
+                    maxLines: 1,
+                    style: const pw.TextStyle(
+                      color: _white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _legacyKitBadgeIcon(_SheetAssets assets) {
+    final personIconSvg = assets.personIconSvg;
+    if (personIconSvg != null) {
+      return pw.SizedBox(
+        width: 9,
+        height: 11,
+        child: pw.SvgImage(svg: personIconSvg),
+      );
+    }
+    return pw.SizedBox(
+      width: 9,
+      height: 11,
+      child: pw.Stack(
+        children: [
+          pw.Positioned(
+            left: 2.2,
+            top: 0,
             child: pw.Container(
-              width: 4,
-              height: 4,
+              width: 4.6,
+              height: 5.4,
               decoration: const pw.BoxDecoration(
                 color: _white,
                 shape: pw.BoxShape.circle,
@@ -490,14 +530,14 @@ class LegacyKitPdfService {
             ),
           ),
           pw.Positioned(
-            left: 2.5,
-            top: 6.5,
+            left: 0,
+            top: 5.6,
             child: pw.Container(
-              width: 7,
-              height: 3.5,
+              width: 9,
+              height: 5.4,
               decoration: const pw.BoxDecoration(
                 color: _white,
-                borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
               ),
             ),
           ),
@@ -759,6 +799,8 @@ class _SheetAssets {
   final String? logoSvg;
   final String? enteLogoBlackSvg;
   final String? enteComBadgeSvg;
+  final String? personIconSvg;
+  final pw.Font? nunitoBlack;
   final pw.ThemeData? theme;
 
   const _SheetAssets({
@@ -768,6 +810,8 @@ class _SheetAssets {
     required this.logoSvg,
     required this.enteLogoBlackSvg,
     required this.enteComBadgeSvg,
+    required this.personIconSvg,
+    required this.nunitoBlack,
     required this.theme,
   });
 }
