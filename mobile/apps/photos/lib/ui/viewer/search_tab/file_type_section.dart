@@ -9,7 +9,6 @@ import "package:photos/models/search/recent_searches.dart";
 import "package:photos/models/search/search_types.dart";
 import "package:photos/services/search_service.dart";
 import "package:photos/theme/ente_theme.dart";
-import "package:photos/ui/common/loading_widget.dart";
 import "package:photos/ui/viewer/search/result/search_result_page.dart";
 import "package:photos/ui/viewer/search/search_section_cta.dart";
 import "package:photos/ui/viewer/search_tab/section_header.dart";
@@ -191,7 +190,6 @@ class _FileTypeRecommendationState extends State<_FileTypeRecommendation> {
   };
 
   final _logger = Logger("FileTypeRecommendation");
-  bool _isResolving = false;
 
   @override
   Widget build(BuildContext context) {
@@ -203,41 +201,20 @@ class _FileTypeRecommendationState extends State<_FileTypeRecommendation> {
         constraints: const BoxConstraints(maxHeight: 68),
         child: GestureDetector(
           onTap: _onTap,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              assetPath != null
-                  ? Image.asset(assetPath)
-                  : _UnknownFileTypeImage(fileTypeKey),
-              if (_isResolving)
-                const EnteLoadingWidget(
-                  color: Colors.white,
-                  size: 20,
-                  padding: 0,
-                ),
-            ],
-          ),
+          child: assetPath != null
+              ? Image.asset(assetPath)
+              : _UnknownFileTypeImage(fileTypeKey),
         ),
       ),
     );
   }
 
   Future<void> _onTap() async {
-    if (_isResolving) {
-      return;
-    }
-    setState(() {
-      _isResolving = true;
-    });
-
     try {
       final searchResult = await widget.tile.resolve();
       if (!mounted) {
         return;
       }
-      setState(() {
-        _isResolving = false;
-      });
       RecentSearches().add(searchResult.name());
       unawaited(
         routeToPage(
@@ -247,12 +224,6 @@ class _FileTypeRecommendationState extends State<_FileTypeRecommendation> {
       );
     } catch (e, s) {
       _logger.severe("Failed to resolve file type result", e, s);
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isResolving = false;
-      });
     }
   }
 }
