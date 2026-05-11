@@ -1065,53 +1065,22 @@ class _LegacyKitLeadingIcon extends StatelessWidget {
           Center(
             child: LegacyKitRowIcon(
               color: colorScheme.primary700,
-              size: 20,
             ),
           ),
           if (showWarningBadge)
             Positioned(
-              right: 4,
-              bottom: 4,
-              child: _LegacyKitWarningBadge(
-                borderColor: colorScheme.backdropBase,
+              left: 20,
+              top: 20,
+              child: SizedBox.square(
+                dimension: 16,
+                child: Center(
+                  child: LegacyKitAlertIcon(
+                    color: colorScheme.warning400,
+                  ),
+                ),
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _LegacyKitWarningBadge extends StatelessWidget {
-  final Color borderColor;
-
-  const _LegacyKitWarningBadge({required this.borderColor});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = getEnteColorScheme(context);
-
-    return Container(
-      width: 11,
-      height: 11,
-      decoration: BoxDecoration(
-        color: colorScheme.warning500,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: borderColor,
-          width: 1.5,
-        ),
-      ),
-      child: const Center(
-        child: Text(
-          "!",
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 7.0,
-            height: 1,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
       ),
     );
   }
@@ -1135,7 +1104,10 @@ class _WarningBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Image.asset("assets/warning-red.png", width: 32, height: 32),
+          LegacyKitAlertIcon(
+            color: colorScheme.warning400,
+            size: 32,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

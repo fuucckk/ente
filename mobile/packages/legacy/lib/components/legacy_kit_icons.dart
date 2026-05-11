@@ -93,7 +93,7 @@ class LegacyKitRowIcon extends StatelessWidget {
 
   const LegacyKitRowIcon({
     required this.color,
-    this.size = 20,
+    this.size = 18,
     super.key,
   });
 
@@ -101,6 +101,27 @@ class LegacyKitRowIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return HugeIcon(
       icon: HugeIcons.strokeRoundedFileFavourite,
+      color: color,
+      size: size,
+      strokeWidth: _hugeIconStrokeWidth,
+    );
+  }
+}
+
+class LegacyKitAlertIcon extends StatelessWidget {
+  final Color color;
+  final double size;
+
+  const LegacyKitAlertIcon({
+    required this.color,
+    this.size = 18,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return HugeIcon(
+      icon: HugeIcons.strokeRoundedAlert02,
       color: color,
       size: size,
       strokeWidth: _hugeIconStrokeWidth,
