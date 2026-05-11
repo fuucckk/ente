@@ -675,7 +675,7 @@ class _RecoveryBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.strings.legacyKitRecoveryAttemptInProgress,
-                  style: textTheme.bodyBold.copyWith(
+                  style: textTheme.smallBold.copyWith(
                     color: warningColor,
                     height: 20 / 14,
                   ),
