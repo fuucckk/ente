@@ -1,26 +1,18 @@
 name: "Release (ensu)"
 
-# USAGE
-#
-# Nightlies run every weekday morning (IST), or whenever this workflow is run
-# manually. They update the prerelease tagged "ensu-v{next}-beta", such as
-# ensu-v0.1.16-beta when the latest stable tag is ensu-v0.1.15.
-#
-# To create a release, push a stable tag of the form "ensu-v{next}", e.g.:
-#
-#   git tag ensu-v0.1.16 && git push origin ensu-v0.1.16
-#
-# This creates a draft release tagged "ensu-v{next}" and removes the matching
-# "ensu-v{next}-beta" prerelease and tag.
+# See .github/docs/ensu-release.md
 
 on:
     push:
-        # Run when a release tag matching the pattern "ensu-v*" is pushed
-        # (beta tags are managed by this workflow itself).
-        tags:
-            - "ensu-v[0-9]+.[0-9]+.[0-9]+"
-    # Also allow manually running the workflow
+        branches:
+            - "release/ensu-v*"
     workflow_dispatch:
+        inputs:
+            release:
+                description: "Create the release draft"
+                required: false
+                default: false
+                type: boolean
     schedule:
         # Run every weekday at ~7:15 AM IST
         - cron: "45 1 * * 1-5"
@@ -40,60 +32,72 @@ jobs:
         runs-on: ubuntu-22.04
 
         outputs:
-            release_tag: ${{ steps.release.outputs.release_tag }}
-            release_name: ${{ steps.release.outputs.release_name }}
-            release_body: ${{ steps.release.outputs.release_body }}
-            release_draft: ${{ steps.release.outputs.release_draft }}
-            release_prerelease: ${{ steps.release.outputs.release_prerelease }}
-            short_sha: ${{ steps.release.outputs.short_sha }}
+            should_build: ${{ steps.prepare.outputs.should_build }}
+            commit_sha: ${{ steps.prepare.outputs.commit_sha }}
+            release_tag: ${{ steps.prepare.outputs.release_tag }}
+            release_body: ${{ steps.prepare.outputs.release_body }}
+            is_release: ${{ steps.prepare.outputs.is_release }}
+            short_sha: ${{ steps.prepare.outputs.short_sha }}
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v6
               with:
-                  fetch-depth: 0
+                  ref: ${{ github.ref_name }}
 
-            - name: Set release metadata
-              id: release
+            - name: Prepare release
+              id: prepare
               shell: bash
+              env:
+                  INPUT_RELEASE: ${{ inputs.release || false }}
               run: |
                   set -euo pipefail
 
-                  if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
-                      RELEASE_TAG="${GITHUB_REF_NAME}"
-                      RELEASE_NAME="${RELEASE_TAG}"
-                      RELEASE_BODY=""
-                      RELEASE_DRAFT=true
-                      RELEASE_PRERELEASE=false
-                  else
-                      latest_stable_tag="$(
-                          git tag --list 'ensu-v*' --sort=-version:refname |
-                              grep -E '^ensu-v[0-9]+\.[0-9]+\.[0-9]+$' |
-                              head -n 1 || true
-                      )"
-                      if [[ -z "${latest_stable_tag}" ]]; then
-                          echo "::error::No stable Ensu release tag found"
+                  if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]] && git ls-remote --exit-code --heads origin 'release/ensu-v*' >/dev/null 2>&1; then
+                      echo "Active Ensu release branch found; skipping scheduled nightly"
+                      echo "should_build=false" >> "${GITHUB_OUTPUT}"
+                      exit 0
+                  fi
+
+                  version="$(node .github/scripts/ensu-version.mjs get)"
+
+                  if [[ "${INPUT_RELEASE}" == "true" ]]; then
+                      expected_tag="ensu-v${version}"
+                      if [[ "${GITHUB_REF_NAME}" != "release/${expected_tag}" ]]; then
+                          echo "::error::Branch ${GITHUB_REF_NAME} does not match Ensu version ${version}"
                           exit 1
                       fi
 
-                      stable_version="${latest_stable_tag#ensu-v}"
-                      IFS=. read -r major minor patch <<< "${stable_version}"
-                      RELEASE_TAG="ensu-v${major}.${minor}.$((patch + 1))-beta"
-                      RELEASE_NAME="${RELEASE_TAG}"
+                      if git fetch --force origin "refs/tags/${expected_tag}:refs/tags/${expected_tag}" 2>/dev/null; then
+                          git checkout --detach "${expected_tag}"
+                      else
+                          git config user.name "github-actions[bot]"
+                          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                          node .github/scripts/ensu-version.mjs set "${version}"
+                          git commit -am "Mark Ensu ${version} release"
+                          git tag "${expected_tag}"
+                          git push origin "${expected_tag}"
+                      fi
+
+                      RELEASE_TAG="${expected_tag}"
+                      RELEASE_BODY=""
+                  else
+                      RELEASE_TAG="ensu-v${version}-beta"
                       RELEASE_BODY="Nightly builds"
-                      RELEASE_DRAFT=false
-                      RELEASE_PRERELEASE=true
                   fi
 
+                  commit_sha="$(git rev-parse HEAD)"
+
+                  echo "should_build=true" >> "${GITHUB_OUTPUT}"
+                  echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
+                  echo "short_sha=${commit_sha::7}" >> "${GITHUB_OUTPUT}"
                   echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-                  echo "release_name=${RELEASE_NAME}" >> "${GITHUB_OUTPUT}"
                   echo "release_body=${RELEASE_BODY}" >> "${GITHUB_OUTPUT}"
-                  echo "release_draft=${RELEASE_DRAFT}" >> "${GITHUB_OUTPUT}"
-                  echo "release_prerelease=${RELEASE_PRERELEASE}" >> "${GITHUB_OUTPUT}"
-                  echo "short_sha=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
+                  echo "is_release=${INPUT_RELEASE}" >> "${GITHUB_OUTPUT}"
 
     release-desktop:
         needs: release-metadata
+        if: needs.release-metadata.outputs.should_build == 'true'
         environment: "auth-win-build"
         strategy:
             fail-fast: false
@@ -114,16 +118,16 @@ jobs:
 
         runs-on: ${{ matrix.platform.os }}
         env:
+            COMMIT_SHA: ${{ needs.release-metadata.outputs.commit_sha }}
             RELEASE_TAG: ${{ needs.release-metadata.outputs.release_tag }}
-            RELEASE_NAME: ${{ needs.release-metadata.outputs.release_name }}
             RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
-            RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
-            RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
             HAS_WINDOWS_SIGNING: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_ENDPOINT != '' && secrets.AZURE_CODE_SIGNING_NAME != '' && secrets.AZURE_CERT_PROFILE_NAME != '' }}
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.release-metadata.outputs.commit_sha }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v6
@@ -281,11 +285,11 @@ jobs:
               with:
                   projectPath: rust/apps/ensu
                   tagName: ${{ env.RELEASE_TAG }}
-                  releaseName: ${{ env.RELEASE_NAME }}
+                  releaseName: ${{ env.RELEASE_TAG }}
                   releaseBody: ${{ env.RELEASE_BODY }}
-                  releaseCommitish: ${{ github.sha }}
-                  releaseDraft: ${{ env.RELEASE_DRAFT }}
-                  prerelease: ${{ env.RELEASE_PRERELEASE }}
+                  releaseCommitish: ${{ env.COMMIT_SHA }}
+                  releaseDraft: ${{ needs.release-metadata.outputs.is_release == 'true' }}
+                  prerelease: ${{ needs.release-metadata.outputs.is_release != 'true' }}
                   includeDebug: false
                   includeRelease: true
                   includeUpdaterJson: false
@@ -293,17 +297,16 @@ jobs:
 
     build-android:
         needs: release-metadata
+        if: needs.release-metadata.outputs.should_build == 'true'
         runs-on: ubuntu-22.04
         env:
+            COMMIT_SHA: ${{ needs.release-metadata.outputs.commit_sha }}
             RELEASE_TAG: ${{ needs.release-metadata.outputs.release_tag }}
-            RELEASE_NAME: ${{ needs.release-metadata.outputs.release_name }}
             RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
-            RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
-            RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
             SHORT_SHA: ${{ needs.release-metadata.outputs.short_sha }}
             HAS_ANDROID_SIGNING: ${{ secrets.SIGNING_KEY_ENSU != '' && secrets.SIGNING_STORE_PASSWORD_ENSU != '' && secrets.SIGNING_KEY_ALIAS_ENSU != '' && secrets.SIGNING_KEY_PASSWORD_ENSU != '' }}
             HAS_PLAYSTORE_SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_JSON != '' }}
-            SHOULD_UPLOAD_PLAYSTORE: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.SERVICE_ACCOUNT_JSON != '' }}
+            SHOULD_UPLOAD_PLAYSTORE: ${{ needs.release-metadata.outputs.is_release == 'true' && secrets.SERVICE_ACCOUNT_JSON != '' }}
             HAS_DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK != '' }}
 
         defaults:
@@ -313,6 +316,8 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.release-metadata.outputs.commit_sha }}
 
             - name: Setup JDK 17
               uses: actions/setup-java@v4
@@ -370,18 +375,18 @@ jobs:
                   mkdir -p artifacts
                   cp app-ui/build/outputs/apk/release/app-ui-release.apk artifacts/${{ env.RELEASE_TAG }}.apk
 
-            - name: Upload Android APK to draft GitHub release
+            - name: Upload Android APK to GitHub release
               if: env.HAS_ANDROID_SIGNING == 'true'
               uses: ncipollo/release-action@v1
               with:
                   tag: ${{ env.RELEASE_TAG }}
-                  name: ${{ env.RELEASE_NAME }}
+                  name: ${{ env.RELEASE_TAG }}
                   body: ${{ env.RELEASE_BODY }}
-                  commit: ${{ github.sha }}
+                  commit: ${{ env.COMMIT_SHA }}
                   artifacts: mobile/native/android/apps/ensu/artifacts/${{ env.RELEASE_TAG }}.apk
                   allowUpdates: true
-                  draft: ${{ env.RELEASE_DRAFT }}
-                  prerelease: ${{ env.RELEASE_PRERELEASE }}
+                  draft: ${{ needs.release-metadata.outputs.is_release == 'true' }}
+                  prerelease: ${{ needs.release-metadata.outputs.is_release != 'true' }}
                   updateOnlyUnreleased: true
 
             - name: Upload AAB to PlayStore
@@ -402,29 +407,23 @@ jobs:
                   nodetail: true
                   title: "🤖 Internal release available for Ensu"
                   description: |
-                      ${{ env.RELEASE_TAG }} ([${{ env.SHORT_SHA }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})) · [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
+                      ${{ env.RELEASE_TAG }} ([${{ env.SHORT_SHA }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ env.COMMIT_SHA }})) · [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
                   color: 0xFDCE13
 
-    cleanup-beta-release:
-        needs: [release-desktop, build-android]
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    cleanup-release:
+        needs: [release-metadata, release-desktop, build-android]
+        if: needs.release-metadata.outputs.is_release == 'true'
         runs-on: ubuntu-22.04
 
         steps:
-            - name: Delete matching beta release and tag
+            - name: Delete matching beta release, tag, and release branch
               env:
                   GH_TOKEN: ${{ github.token }}
-                  BETA_TAG: ${{ github.ref_name }}-beta
+                  BETA_TAG: ${{ needs.release-metadata.outputs.release_tag }}-beta
+                  RELEASE_BRANCH: release/${{ needs.release-metadata.outputs.release_tag }}
               run: |
                   set -euo pipefail
 
-                  if gh release view "${BETA_TAG}" >/dev/null 2>&1; then
-                      gh release delete "${BETA_TAG}" --yes --cleanup-tag
-                      exit 0
-                  fi
-
-                  if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${BETA_TAG}" >/dev/null 2>&1; then
-                      gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${BETA_TAG}" >/dev/null
-                  else
-                      echo "No ${BETA_TAG} release or tag found"
-                  fi
+                  gh release delete "${BETA_TAG}" --yes || true
+                  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${BETA_TAG}" >/dev/null 2>&1 || true
+                  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1 || true
