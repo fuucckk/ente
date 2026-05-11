@@ -130,15 +130,7 @@ export const ChatComposer = memo(
 
         const pendingImagePreviewRow =
             pendingImages.length > 0 ? (
-                <Box
-                    sx={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 1,
-                        px: 1,
-                        pb: 1,
-                    }}
-                >
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, pb: 1 }}>
                     {pendingImages.map((img) => {
                         const preview = pendingImagePreviews[img.id];
                         return (
