@@ -37,6 +37,17 @@ class FileViewerState extends State<FileViewer> {
       action.action == IntentAction.view &&
       (action.type == MediaType.image || action.type == MediaType.video);
 
+  Widget _boundedPhotoView(ImageProvider imageProvider) {
+    return PhotoView(
+      imageProvider: imageProvider,
+      filterQuality: FilterQuality.high,
+      initialScale: PhotoViewComputedScale.contained,
+      minScale: PhotoViewComputedScale.contained,
+      maxScale: PhotoViewComputedScale.covered * 3.0,
+      strictScale: true,
+    );
+  }
+
   @override
   void initState() {
     _logger.info("Initializing FileViewer");
@@ -162,9 +173,7 @@ class FileViewerState extends State<FileViewer> {
   Widget _buildImageViewer() {
     final sharedMediaPath = widget.sharedMediaFile?.path;
     if (sharedMediaPath != null) {
-      return PhotoView(
-        imageProvider: Image.file(File(sharedMediaPath)).image,
-      );
+      return _boundedPhotoView(Image.file(File(sharedMediaPath)).image);
     }
 
     final data = action.data;
@@ -175,9 +184,7 @@ class FileViewerState extends State<FileViewer> {
 
     final uri = Uri.tryParse(data);
     if (uri?.scheme == "file") {
-      return PhotoView(
-        imageProvider: FileImage(File(uri!.toFilePath())),
-      );
+      return _boundedPhotoView(FileImage(File(uri!.toFilePath())));
     }
 
     final assetFuture = mediaStoreAssetFuture;
@@ -193,16 +200,12 @@ class FileViewerState extends State<FileViewer> {
             }
             return const CircularProgressIndicator();
           }
-          return PhotoView(
-            imageProvider: AssetEntityImageProvider(asset),
-          );
+          return _boundedPhotoView(AssetEntityImageProvider(asset));
         },
       );
     }
 
-    return PhotoView(
-      imageProvider: MemoryImage(base64Decode(data)),
-    );
+    return _boundedPhotoView(MemoryImage(base64Decode(data)));
   }
 
   @override
