@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -27,6 +28,18 @@ pub struct SrpState {
 pub struct LlmState {
     model: Mutex<Option<llm::ModelHandleRef>>,
     context: Mutex<Option<llm::ContextHandleRef>>,
+}
+
+pub struct LlmModelDownloadState {
+    cancel_requested: Arc<AtomicBool>,
+}
+
+impl Default for LlmModelDownloadState {
+    fn default() -> Self {
+        Self {
+            cancel_requested: Arc::new(AtomicBool::new(false)),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -93,6 +106,26 @@ pub struct TauriEnsuDefaults {
     mobile_model_presets: Vec<TauriEnsuModelPreset>,
     desktop_default_model: TauriEnsuModelPreset,
     desktop_model_presets: Vec<TauriEnsuModelPreset>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TauriLlmModelDownloadTarget {
+    label: String,
+    url: String,
+    path: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TauriLlmModelDownloadProgress {
+    label: String,
+    percent: i32,
+    status: String,
+    bytes_downloaded: u64,
+    total_bytes: Option<u64>,
+    file_bytes_downloaded: u64,
+    file_total_bytes: Option<u64>,
 }
 
 impl From<llm::EnsuModelPreset> for TauriEnsuModelPreset {
@@ -1578,6 +1611,142 @@ pub fn system_info() -> SystemInfo {
 #[tauri::command]
 pub fn get_ensu_defaults() -> TauriEnsuDefaults {
     llm::ensu_defaults().into()
+}
+
+#[tauri::command]
+pub async fn llm_download_model_files(
+    window: Window,
+    state: State<'_, LlmModelDownloadState>,
+    downloads: Vec<TauriLlmModelDownloadTarget>,
+) -> Result<(), ApiError> {
+    let cancel_requested = Arc::clone(&state.cancel_requested);
+    cancel_requested.store(false, Ordering::SeqCst);
+    let targets = downloads
+        .into_iter()
+        .map(|download| llm::LlmModelDownloadTarget {
+            label: download.label,
+            url: download.url,
+            destination_path: download.path,
+        })
+        .collect::<Vec<_>>();
+
+    async_runtime::spawn_blocking(move || {
+        let progress_window = window.clone();
+        llm::download_llm_model_files(
+            targets,
+            move |progress| {
+                log_download_metrics(&progress);
+                let payload = tauri_download_progress(progress);
+                let _ = progress_window.emit("llm-download-progress", payload);
+            },
+            move || cancel_requested.load(Ordering::SeqCst),
+        )
+        .map_err(llm_error)
+    })
+    .await
+    .map_err(|_| fs_thread_error())?
+}
+
+#[tauri::command]
+pub fn llm_cancel_model_download(state: State<'_, LlmModelDownloadState>) {
+    state.cancel_requested.store(true, Ordering::SeqCst);
+}
+
+fn tauri_download_progress(
+    progress: llm::LlmModelDownloadProgress,
+) -> TauriLlmModelDownloadProgress {
+    let percent = if progress.total_bytes.is_some() {
+        progress.percentage.round().clamp(0.0, 100.0) as i32
+    } else {
+        0
+    };
+    let status = download_progress_status(&progress);
+
+    TauriLlmModelDownloadProgress {
+        label: progress.label,
+        percent,
+        status,
+        bytes_downloaded: progress.downloaded_bytes,
+        total_bytes: progress.total_bytes,
+        file_bytes_downloaded: progress.file_downloaded_bytes,
+        file_total_bytes: progress.file_total_bytes,
+    }
+}
+
+fn download_progress_status(progress: &llm::LlmModelDownloadProgress) -> String {
+    if progress.label == "Complete" {
+        return "Download complete".to_string();
+    }
+    if progress.label == "Preparing downloads" {
+        return "Preparing downloads...".to_string();
+    }
+
+    if let Some(total) = progress.total_bytes {
+        format!(
+            "Downloading... {} / {}",
+            format_bytes(progress.downloaded_bytes),
+            format_bytes(total)
+        )
+    } else if progress.file_downloaded_bytes > 0 {
+        format!(
+            "Downloading {}... {}",
+            progress.label.to_lowercase(),
+            format_bytes(progress.file_downloaded_bytes)
+        )
+    } else {
+        format!("Downloading {}...", progress.label.to_lowercase())
+    }
+}
+
+fn log_download_metrics(progress: &llm::LlmModelDownloadProgress) {
+    if progress.file_complete {
+        logging::log(
+            "LLMDownload",
+            format!(
+                "file_complete label={} bytes={} elapsed_ms={} rate={} retries={}",
+                progress.label,
+                progress.file_downloaded_bytes,
+                progress.file_elapsed_ms,
+                format_rate(progress.file_bytes_per_second),
+                progress.file_retry_count
+            ),
+        );
+    }
+
+    if progress.complete {
+        logging::log(
+            "LLMDownload",
+            format!(
+                "complete bytes={} elapsed_ms={} rate={} retries={}",
+                progress.downloaded_bytes,
+                progress.elapsed_ms,
+                format_rate(progress.bytes_per_second),
+                progress.retry_count
+            ),
+        );
+    }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
+    let mut value = bytes as f64;
+    let mut unit = 0usize;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{} {}", bytes, UNITS[unit])
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
+fn format_rate(bytes_per_second: f64) -> String {
+    if !bytes_per_second.is_finite() || bytes_per_second <= 0.0 {
+        return "0 B/s".to_string();
+    }
+    format!("{}/s", format_bytes(bytes_per_second.round() as u64))
 }
 
 #[tauri::command]

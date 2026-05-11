@@ -97,6 +97,9 @@ final class InferenceRsProvider {
     private var backendInitialized = false
     private var currentJobId: Int64?
     private let modelLoadGate = AsyncSerialGate()
+    private let rustDownloadCancelLock = NSLock()
+    private var rustDownloadCancelled = false
+    private let logger = EnsuLogging.shared.logger("InferenceRsProvider")
 
     init(modelDir: URL) {
         self.modelDir = modelDir
@@ -155,8 +158,20 @@ final class InferenceRsProvider {
 
         if !downloads.isEmpty {
             onProgress(InferenceDownloadProgress(percent: 0, status: "Starting download..."))
-            await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
-            try await waitForDownloads(expectedTargets, onProgress: onProgress)
+            await downloadManager.cancelDownloads(for: downloads.map(downloadTarget(for:)))
+            do {
+                try await downloadWithRust(expectedTargets, onProgress: onProgress)
+            } catch {
+                if isDownloadCancellation(error) {
+                    throw error
+                }
+                logger.warning(
+                    "Rust model download failed; falling back to URLSession",
+                    details: "\(error.localizedDescription)"
+                )
+                await downloadManager.enqueueDownloads(downloads.map(downloadTarget(for:)))
+                try await waitForDownloads(expectedTargets, onProgress: onProgress)
+            }
         }
 
         onProgress(InferenceDownloadProgress(percent: 100, status: "Loading model..."))
@@ -302,6 +317,7 @@ final class InferenceRsProvider {
     }
 
     func cancelDownload() {
+        setRustDownloadCancelled(true)
         Task {
             await downloadManager.cancelAllDownloads()
         }
@@ -530,6 +546,78 @@ final class InferenceRsProvider {
             try await Task.sleep(nanoseconds: 500_000_000)
         }
     }
+
+    private func downloadWithRust(
+        _ expectedTargets: [DownloadTarget],
+        onProgress: @escaping (InferenceDownloadProgress) -> Void
+    ) async throws {
+        setRustDownloadCancelled(false)
+        let targets = expectedTargets.map {
+            LlmModelDownloadTarget(label: $0.label, url: $0.url, destinationPath: $0.destination.path)
+        }
+
+        let downloadTask = Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let callback = ModelDownloadCallbackSink(
+                onProgress: { progress in
+                    self.logDownloadMetrics(progress)
+                    onProgress(progress.toInferenceProgress())
+                },
+                isCancelled: { [weak self] in
+                    (self?.isRustDownloadCancelled() ?? true) || Task.isCancelled
+                }
+            )
+            try downloadLlmModelFiles(targets: targets, callback: callback)
+        }
+
+        try await withTaskCancellationHandler {
+            try await downloadTask.value
+        } onCancel: {
+            self.setRustDownloadCancelled(true)
+            downloadTask.cancel()
+        }
+    }
+
+    private func setRustDownloadCancelled(_ cancelled: Bool) {
+        rustDownloadCancelLock.lock()
+        rustDownloadCancelled = cancelled
+        rustDownloadCancelLock.unlock()
+    }
+
+    private func isRustDownloadCancelled() -> Bool {
+        rustDownloadCancelLock.lock()
+        let cancelled = rustDownloadCancelled
+        rustDownloadCancelLock.unlock()
+        return cancelled
+    }
+
+    private func isDownloadCancellation(_ error: Error) -> Bool {
+        error is CancellationError ||
+            isRustDownloadCancelled() ||
+            error.localizedDescription.range(of: "cancelled", options: .caseInsensitive) != nil
+    }
+
+    private func logDownloadMetrics(_ progress: LlmModelDownloadProgress) {
+        if progress.fileComplete {
+            logger.info(
+                "Model download file complete",
+                details: "label=\(progress.label) bytes=\(progress.fileDownloadedBytes) elapsedMs=\(progress.fileElapsedMs) rate=\(formatRate(progress.fileBytesPerSecond)) retries=\(progress.fileRetryCount)"
+            )
+        }
+        if progress.complete {
+            logger.info(
+                "Model download complete",
+                details: "bytes=\(progress.downloadedBytes) elapsedMs=\(progress.elapsedMs) rate=\(formatRate(progress.bytesPerSecond)) retries=\(progress.retryCount)"
+            )
+        }
+    }
+
+    private func formatRate(_ bytesPerSecond: Double) -> String {
+        guard bytesPerSecond.isFinite, bytesPerSecond > 0 else {
+            return "0 B/s"
+        }
+        return "\(Int64(bytesPerSecond).formattedFileSize)/s"
+    }
 }
 
 private final class CallbackSink: GenerateEventCallback, @unchecked Sendable {
@@ -541,5 +629,45 @@ private final class CallbackSink: GenerateEventCallback, @unchecked Sendable {
 
     func onEvent(event: GenerateEvent) {
         handler(event)
+    }
+}
+
+private final class ModelDownloadCallbackSink: LlmModelDownloadCallback, @unchecked Sendable {
+    private let onProgressHandler: (LlmModelDownloadProgress) -> Void
+    private let isCancelledHandler: () -> Bool
+
+    init(
+        onProgress: @escaping (LlmModelDownloadProgress) -> Void,
+        isCancelled: @escaping () -> Bool
+    ) {
+        self.onProgressHandler = onProgress
+        self.isCancelledHandler = isCancelled
+    }
+
+    func onProgress(progress: LlmModelDownloadProgress) {
+        onProgressHandler(progress)
+    }
+
+    func isCancelled() -> Bool {
+        isCancelledHandler()
+    }
+}
+
+private extension LlmModelDownloadProgress {
+    func toInferenceProgress() -> InferenceDownloadProgress {
+        let total = totalBytes.flatMap { $0 > 0 ? $0 : nil }
+        let percent: Int
+        let status: String
+        if let total {
+            percent = min(99, max(0, Int((Double(downloadedBytes) / Double(total)) * 100.0)))
+            status = "Downloading... \(downloadedBytes.formattedFileSize) / \(total.formattedFileSize)"
+        } else if fileDownloadedBytes > 0 {
+            percent = 0
+            status = "Downloading \(label.lowercased())... \(fileDownloadedBytes.formattedFileSize)"
+        } else {
+            percent = 0
+            status = "Downloading \(label.lowercased())..."
+        }
+        return InferenceDownloadProgress(percent: percent, status: status)
     }
 }

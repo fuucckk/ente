@@ -13,6 +13,7 @@ fn main() {
     let app = tauri::Builder::default()
         .manage(commands::SrpState::default())
         .manage(commands::LlmState::default())
+        .manage(commands::LlmModelDownloadState::default())
         .manage(commands::ChatDbState::default())
         .setup(|app| {
             logging::init_logging(&app.handle());
@@ -80,6 +81,8 @@ fn main() {
             commands::llm_cancel,
             commands::system_info,
             commands::get_ensu_defaults,
+            commands::llm_download_model_files,
+            commands::llm_cancel_model_download,
             commands::fs_file_size,
             commands::fs_read_head,
             commands::fs_append_bytes,

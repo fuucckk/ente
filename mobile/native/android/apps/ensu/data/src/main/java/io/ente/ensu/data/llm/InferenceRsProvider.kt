@@ -10,12 +10,16 @@ import io.ente.ensu.domain.llm.GenerationSummary
 import io.ente.ensu.domain.llm.LlmMessage
 import io.ente.ensu.domain.llm.LlmModelTarget
 import io.ente.ensu.domain.llm.LlmProvider
+import io.ente.ensu.domain.util.formatBytes
 import io.ente.labs.inference_rs.ContextHandle
 import io.ente.labs.inference_rs.ContextParams
 import io.ente.labs.inference_rs.GenerateChatRequest
 import io.ente.labs.inference_rs.GenerateEvent
 import io.ente.labs.inference_rs.GenerateEventCallback
 import io.ente.labs.inference_rs.GenerateSummary as NativeSummary
+import io.ente.labs.inference_rs.LlmModelDownloadCallback
+import io.ente.labs.inference_rs.LlmModelDownloadProgress
+import io.ente.labs.inference_rs.LlmModelDownloadTarget
 import io.ente.labs.inference_rs.ModelHandle
 import io.ente.labs.inference_rs.ModelLoadParams
 import io.ente.labs.inference_rs.initBackend
@@ -24,9 +28,11 @@ import io.ente.labs.inference_rs.createContext
 import io.ente.labs.inference_rs.generateChatStream
 import io.ente.labs.inference_rs.prewarmMultimodalContext
 import io.ente.labs.inference_rs.cancel
+import io.ente.labs.inference_rs.downloadLlmModelFiles
 import io.ente.labs.inference_rs.uniffiEnsureInitialized
 import io.ente.labs.inference_rs.InferenceException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,6 +45,7 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.coroutines.coroutineContext
 import kotlin.math.max
 
 class InferenceRsProvider(
@@ -359,7 +366,7 @@ class InferenceRsProvider(
         migrateLegacyDownloads(target)
         val modelFile = ModelDownloadSupport.modelPathFor(modelDir, target)
         if (!ModelDownloadSupport.isTargetDownloaded(modelDir, target)) {
-            awaitBackgroundDownload(target, onProgress)
+            awaitForegroundDownload(target, onProgress)
         }
 
         onProgress(DownloadProgress(100, "Loading model..."))
@@ -403,12 +410,31 @@ class InferenceRsProvider(
         throw lastError ?: IllegalStateException("Failed to load model")
     }
 
+    private suspend fun awaitForegroundDownload(
+        target: LlmModelTarget,
+        onProgress: (DownloadProgress) -> Unit
+    ) {
+        cancelNativeDownloads(target)
+        try {
+            awaitRustForegroundDownload(target, onProgress)
+        } catch (error: Throwable) {
+            if (manualDownloadCancelled || error.isDownloadCancellation()) {
+                throw error
+            }
+            if (externalDownloadsRoot == null || downloadManager == null) {
+                throw error
+            }
+            Log.w("InferenceRsProvider", "Rust model download failed; falling back to DownloadManager", error)
+            awaitBackgroundDownload(target, onProgress)
+        }
+    }
+
     private suspend fun awaitBackgroundDownload(
         target: LlmModelTarget,
         onProgress: (DownloadProgress) -> Unit
     ) {
         if (externalDownloadsRoot == null || downloadManager == null) {
-            awaitManualDownload(target, onProgress)
+            awaitRustForegroundDownload(target, onProgress)
             return
         }
         ensureDownloadsEnqueued(target)
@@ -441,23 +467,98 @@ class InferenceRsProvider(
         }
     }
 
-    private fun awaitManualDownload(
+    private suspend fun awaitRustForegroundDownload(
         target: LlmModelTarget,
         onProgress: (DownloadProgress) -> Unit
     ) {
+        val downloadJob = coroutineContext[Job]
         manualDownloadCancelled = false
         manualDownloadActive = true
         try {
             val targets = ModelDownloadSupport.expectedTargets(modelDir, target)
-            ModelDownloadSupport.downloadTargets(
-                httpClient,
+                .map {
+                    LlmModelDownloadTarget(
+                        label = it.label,
+                        url = it.url,
+                        destinationPath = it.destination.absolutePath
+                    )
+                }
+            downloadLlmModelFiles(
                 targets,
-                onProgress,
-                isCancelled = { manualDownloadCancelled }
+                object : LlmModelDownloadCallback {
+                    override fun onProgress(progress: LlmModelDownloadProgress) {
+                        logDownloadMetrics(progress)
+                        onProgress(progress.toDomainProgress())
+                    }
+
+                    override fun isCancelled(): Boolean =
+                        manualDownloadCancelled || downloadJob?.isCancelled == true
+                }
             )
         } finally {
             manualDownloadActive = false
         }
+    }
+
+    private fun Throwable.isDownloadCancellation(): Boolean {
+        return message?.contains("cancelled", ignoreCase = true) == true
+    }
+
+    private fun cancelNativeDownloads(target: LlmModelTarget) {
+        val ids = loadDownloadRecords(target).map { it.downloadId }.distinct()
+        if (ids.isNotEmpty() && downloadManager != null) {
+            downloadManager.remove(*ids.toLongArray())
+        }
+        clearDownloadRecords(target)
+    }
+
+    private fun logDownloadMetrics(progress: LlmModelDownloadProgress) {
+        if (progress.fileComplete) {
+            Log.i(
+                "InferenceRsProvider",
+                "Model download file complete label=${progress.label} " +
+                    "bytes=${progress.fileDownloadedBytes} " +
+                    "elapsedMs=${progress.fileElapsedMs} " +
+                    "rate=${formatRate(progress.fileBytesPerSecond)} " +
+                    "retries=${progress.fileRetryCount}"
+            )
+        }
+        if (progress.complete) {
+            Log.i(
+                "InferenceRsProvider",
+                "Model download complete bytes=${progress.downloadedBytes} " +
+                    "elapsedMs=${progress.elapsedMs} " +
+                    "rate=${formatRate(progress.bytesPerSecond)} " +
+                    "retries=${progress.retryCount}"
+            )
+        }
+    }
+
+    private fun formatRate(bytesPerSecond: Double): String {
+        val bytes = if (java.lang.Double.isFinite(bytesPerSecond) && bytesPerSecond > 0.0) {
+            bytesPerSecond.toLong()
+        } else {
+            0L
+        }
+        return "${formatBytes(bytes)}/s"
+    }
+
+    private fun LlmModelDownloadProgress.toDomainProgress(): DownloadProgress {
+        val downloaded = downloadedBytes.coerceAtLeast(0L)
+        val total = totalBytes?.takeIf { it > 0 }
+        val percent = if (total != null) {
+            ((downloaded * 100) / total).toInt().coerceIn(0, 99)
+        } else {
+            0
+        }
+        val status = if (total != null) {
+            "Downloading... ${io.ente.ensu.domain.util.formatBytes(downloaded)} / ${io.ente.ensu.domain.util.formatBytes(total)}"
+        } else if (fileDownloadedBytes > 0) {
+            "Downloading ${label.lowercase()}... ${io.ente.ensu.domain.util.formatBytes(fileDownloadedBytes)}"
+        } else {
+            "Downloading ${label.lowercase()}..."
+        }
+        return DownloadProgress(percent, status)
     }
 
     private fun ensureDownloadsEnqueued(target: LlmModelTarget) {
