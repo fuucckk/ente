@@ -2049,6 +2049,14 @@ class FilesDB with SqlDbBase {
     return deduplicatedFiles;
   }
 
+  Future<bool> hasAnyFile() async {
+    final db = await instance.sqliteAsyncDB;
+    final rows = await db.getAll(
+      'SELECT 1 FROM $filesTable LIMIT 1',
+    );
+    return rows.isNotEmpty;
+  }
+
   Future<FileLoadResult> fetchAllUploadedAndSharedFilesWithLocation(
     int startTime,
     int endTime, {
