@@ -609,7 +609,6 @@ class SearchService {
     BuildContext context,
     int? limit,
   ) async {
-    final stopwatch = Stopwatch()..start();
     final List<GenericSearchResult> searchResults = [];
     final List<EnteFile> allFiles = await getAllFilesForSearch();
     final fileTypesAndMatchingFiles = <FileType, List<EnteFile>>{};
@@ -650,12 +649,6 @@ class SearchService {
           ),
         );
       });
-
-      final elapsed = stopwatch.elapsedMilliseconds;
-      _logger.info(
-        "getAllFileTypesAndExtensionsResults took $elapsed ms",
-      );
-      stopwatch.stop();
 
       if (limit != null) {
         return searchResults.sublist(0, min(limit, searchResults.length));
