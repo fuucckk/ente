@@ -1698,8 +1698,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "78772f7b8de59c3e8a942fec15d5510dc2e5ab98"
-      resolved-ref: "78772f7b8de59c3e8a942fec15d5510dc2e5ab98"
+      ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
+      resolved-ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
       url: "https://github.com/laurens-pilot/media_extension.git"
     source: git
     version: "1.0.2"

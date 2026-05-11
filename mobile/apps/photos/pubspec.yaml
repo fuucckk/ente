@@ -148,8 +148,8 @@ dependencies:
   maps_launcher: 3.0.0+1
   media_extension:
     git:
-      url: "https://github.com/laurens-pilot/media_extension.git"
-      ref: 78772f7b8de59c3e8a942fec15d5510dc2e5ab98
+      url: https://github.com/laurens-pilot/media_extension.git
+      ref: d2a6998b91446bf73fcd1273ac25ae2967786ef8
   media_kit:
     git:
       url: https://github.com/media-kit/media-kit

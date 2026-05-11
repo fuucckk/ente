@@ -23,6 +23,7 @@ import "package:photos/services/home_widget_service.dart";
 import "package:photos/services/memory_home_widget_service.dart";
 import "package:photos/services/people_home_widget_service.dart";
 import 'package:photos/services/sync/sync_service.dart';
+import "package:photos/ui/picker/external_media_picker_page.dart";
 import 'package:photos/ui/tabs/home_widget.dart';
 import "package:photos/ui/viewer/actions/file_viewer.dart";
 import "package:photos/utils/bg_task_utils.dart";
@@ -31,10 +32,12 @@ import "package:photos/utils/intent_util.dart";
 class EnteApp extends StatefulWidget {
   final AdaptiveThemeMode? savedThemeMode;
   final Locale? locale;
+  final MediaExtentionAction? initialMediaExtensionAction;
 
   const EnteApp(
     this.locale,
     this.savedThemeMode, {
+    this.initialMediaExtensionAction,
     super.key,
   });
 
@@ -57,6 +60,8 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
   StreamSubscription<Uri?>? _widgetClickedSubscription;
   bool _didInitWidgetLaunchHandling = false;
   late Future<Widget> _initialAndroidHome;
+  bool get _isPickerLaunch =>
+      widget.initialMediaExtensionAction?.action == IntentAction.pick;
 
   @override
   void initState() {
@@ -108,6 +113,9 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
       return;
     }
     _didInitWidgetLaunchHandling = true;
+    if (_isPickerLaunch) {
+      return;
+    }
     _checkForWidgetLaunch();
   }
 
@@ -128,13 +136,20 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
   }
 
   Future<Widget> _resolveInitialAndroidHome() async {
-    final mediaExtentionAction = Platform.isAndroid
-        ? await initIntentAction()
-        : MediaExtentionAction(action: IntentAction.main);
+    final mediaExtentionAction = widget.initialMediaExtensionAction ??
+        (Platform.isAndroid
+            ? await initIntentAction()
+            : MediaExtentionAction(action: IntentAction.main));
     final lifecycleAction = _appLifecycleActionFor(mediaExtentionAction);
     AppLifecycleService.instance.setMediaExtensionAction(lifecycleAction);
     if (lifecycleAction.action == IntentAction.main) {
       unawaited(BgTaskUtils.configureWorkmanager());
+    }
+    if (mediaExtentionAction.action == IntentAction.pick) {
+      return ExternalMediaPickerPage(
+        requestedType: mediaExtentionAction.type,
+        allowMultiple: mediaExtentionAction.allowMultiple,
+      );
     }
     if (_shouldOpenFileViewer(mediaExtentionAction)) {
       return const FileViewer();
@@ -164,6 +179,15 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
     AppLifecycleService.instance.setMediaExtensionAction(
       _appLifecycleActionFor(mediaExtentionAction),
     );
+    if (mediaExtentionAction.action == IntentAction.pick) {
+      await AppNavigationService.instance.pushPage(
+        ExternalMediaPickerPage(
+          requestedType: mediaExtentionAction.type,
+          allowMultiple: mediaExtentionAction.allowMultiple,
+        ),
+      );
+      return;
+    }
     if (!_shouldOpenFileViewer(mediaExtentionAction)) {
       return;
     }
@@ -261,6 +285,9 @@ class _EnteAppState extends State<EnteApp> with WidgetsBindingObserver {
       final lastAppOpenTime = AppLifecycleService.instance.getLastAppOpenTime();
       AppLifecycleService.instance
           .onAppInForeground(stateChangeReason + ': sync now');
+      if (_isPickerLaunch) {
+        return;
+      }
       unawaited(_reloadCachesUpdatedInBackground(lastAppOpenTime));
       SyncService.instance.sync();
     } else {
