@@ -1,6 +1,6 @@
 name: "Release (ensu)"
 
-# Docs: .github/docs/ensu-release.md
+# See .github/docs/ensu-release.md
 
 on:
     push:
@@ -429,26 +429,30 @@ jobs:
                       ${{ env.RELEASE_TAG }} ([${{ env.SHORT_SHA }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ env.COMMIT_SHA }})) · [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
                   color: 0xFDCE13
 
-    cleanup-beta-release:
+    cleanup-release:
         needs: [release-metadata, release-desktop, build-android]
         if: needs.release-metadata.outputs.is_release_tag == 'true'
         runs-on: ubuntu-22.04
 
         steps:
-            - name: Delete matching beta release and tag
+            - name: Delete matching beta release, tag, and release branch
               env:
                   GH_TOKEN: ${{ github.token }}
                   BETA_TAG: ${{ github.ref_name }}-beta
+                  RELEASE_BRANCH: release/${{ github.ref_name }}
               run: |
                   set -euo pipefail
 
                   if gh release view "${BETA_TAG}" >/dev/null 2>&1; then
                       gh release delete "${BETA_TAG}" --yes --cleanup-tag
-                      exit 0
-                  fi
-
-                  if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${BETA_TAG}" >/dev/null 2>&1; then
+                  elif gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${BETA_TAG}" >/dev/null 2>&1; then
                       gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${BETA_TAG}" >/dev/null
                   else
                       echo "No ${BETA_TAG} release or tag found"
+                  fi
+
+                  if gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
+                      gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${RELEASE_BRANCH}" >/dev/null
+                  else
+                      echo "No ${RELEASE_BRANCH} branch found"
                   fi

@@ -12,7 +12,7 @@ Nightly builds of `main` are automatically created every weekday morning (IST), 
 git switch main
 git pull
 git switch -c release/ensu-v0.1.16
-git push -u origin release/ensu-v0.1.16
+git push -u origin HEAD
 ```
 
 Pushing the release branch creates a new build, updating the `ensu-v0.1.16-beta` prerelease.
@@ -27,7 +27,7 @@ git pull
 git switch -c ensu-v0.1.17-beta
 node .github/scripts/ensu-version.mjs set 0.1.17-beta
 git commit -am "Start Ensu 0.1.17 beta"
-git push -u origin ensu-v0.1.17-beta
+git push -u origin HEAD
 ```
 
 Open and merge a PR from `ensu-v0.1.17-beta` into `main`.
@@ -55,13 +55,4 @@ git tag ensu-v0.1.16
 git push origin ensu-v0.1.16
 ```
 
-The workflow creates draft release `ensu-v0.1.16` and removes `ensu-v0.1.16-beta`.
-
-## Cleanup
-
-Remove the release branch to resume normal nightly builds of `main`.
-
-```sh
-git push origin --delete release/ensu-v0.1.16
-git branch -d release/ensu-v0.1.16
-```
+The workflow creates draft release `ensu-v0.1.16`, removes `ensu-v0.1.16-beta`, and deletes the release branch.
