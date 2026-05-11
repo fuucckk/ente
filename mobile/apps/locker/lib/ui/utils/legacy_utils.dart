@@ -4,6 +4,7 @@ import "package:ente_legacy/pages/emergency_page.dart";
 import "package:ente_lock_screen/local_authentication_service.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:locker/l10n/l10n.dart";
 import "package:locker/services/configuration.dart";
 
 /// Opens the Legacy (Emergency contacts) page after authenticating the user.
@@ -15,7 +16,7 @@ Future<void> openLegacyPage(BuildContext context) async {
     hasAuthenticatedForLegacyFlow =
         await LocalAuthenticationService.instance.requestLocalAuthentication(
       context,
-      "Authenticate to manage legacy contacts",
+      context.l10n.authToManageLegacy,
     );
   }
   if (hasAuthenticatedForLegacyFlow && context.mounted) {
