@@ -390,7 +390,7 @@ const LegacyShell: React.FC<LegacyShellProps> = ({ children }) => (
                 minHeight: 0,
                 overflow: "hidden auto",
                 px: { xs: 2.5, md: 5 },
-                py: { xs: 3, md: 5 },
+                py: { xs: 3, md: "1px" },
             }}
         >
             {children}
@@ -409,7 +409,7 @@ const LandingStep: React.FC<LandingStepProps> = ({ onStart }) => (
             alignItems: "center",
             gap: { xs: 2, md: "46px" },
             justifyContent: "center",
-            maxWidth: 900,
+            maxWidth: { xs: 343, md: 933 },
             width: "100%",
         }}
     >
@@ -418,9 +418,9 @@ const LandingStep: React.FC<LandingStepProps> = ({ onStart }) => (
             alt=""
             src="/images/legacy-kit/recovery-landing.svg"
             sx={{
-                height: "auto",
+                height: { xs: "auto", md: 293.566 },
                 mt: { xs: 4, md: 0 },
-                width: { xs: 200, md: 304 },
+                width: { xs: 200, md: 304.458 },
             }}
         />
 
@@ -428,7 +428,7 @@ const LandingStep: React.FC<LandingStepProps> = ({ onStart }) => (
             sx={{
                 alignItems: "center",
                 gap: { xs: 2, md: "42px" },
-                maxWidth: { xs: 343, md: 540 },
+                maxWidth: { xs: 343, md: 582 },
                 textAlign: "center",
                 width: "100%",
             }}
@@ -451,7 +451,7 @@ const LandingStep: React.FC<LandingStepProps> = ({ onStart }) => (
                         fontWeight: 500,
                         lineHeight: "24px",
                         mx: "auto",
-                        maxWidth: { xs: 311, md: 500 },
+                        maxWidth: { xs: 311, md: 582 },
                     }}
                 >
                     Use your legacy kit recovery sheets to regain access to an
@@ -494,7 +494,7 @@ const LandingStep: React.FC<LandingStepProps> = ({ onStart }) => (
                             sx={{
                                 fontSize: { xs: 16, md: 20 },
                                 fontWeight: 500,
-                                lineHeight: { xs: "20px", md: "28px" },
+                                lineHeight: { xs: "20px", md: "20px" },
                             }}
                         >
                             {feature}
@@ -733,10 +733,10 @@ const UploadArea: React.FC<UploadAreaProps> = ({ onFile, slot }) => (
                 color: "text.muted",
                 cursor: slot.isReading ? "default" : "pointer",
                 display: "flex",
-                flexDirection: { xs: "row", md: "column" },
+                flexDirection: "row",
                 fontSize: { xs: 14, md: 16 },
                 fontWeight: 500,
-                gap: { xs: 1, md: 0 },
+                gap: 1,
                 height: { xs: 52, md: 160 },
                 justifyContent: "center",
                 lineHeight: "20px",
