@@ -426,23 +426,7 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
   }
 
   Future<void> _blockRecovery() async {
-    final colorScheme = getEnteColorScheme(context);
-    final confirmed = await showAlertBottomSheet<bool>(
-      context,
-      title: context.strings.rejectRecovery,
-      message: context.strings.blockLegacyKitRecoveryMessage,
-      assetPath: "assets/warning-red.png",
-      buttons: [
-        SizedBox(
-          width: double.infinity,
-          child: GradientButton(
-            text: context.strings.rejectRecovery,
-            backgroundColor: colorScheme.warning700,
-            onTap: () => Navigator.of(context).pop(true),
-          ),
-        ),
-      ],
-    );
+    final confirmed = await _showBlockRecoveryConfirmation();
     if (confirmed != true) {
       return;
     }
@@ -464,6 +448,92 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
         showShortToast(context, context.strings.somethingWentWrong);
       }
     }
+  }
+
+  Future<bool?> _showBlockRecoveryConfirmation() {
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final colorScheme = getEnteColorScheme(context);
+        final textTheme = getEnteTextTheme(context);
+        final sheetColor =
+            colorScheme.isLightTheme ? Colors.white : colorScheme.backdropBase;
+        final borderColor = colorScheme.isLightTheme
+            ? const Color(0xFFE0E0E0)
+            : const Color(0xFF3E3E3E);
+        return Container(
+          decoration: BoxDecoration(
+            color: sheetColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+            border: Border.all(color: borderColor),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.strings.rejectRecovery,
+                          style: textTheme.largeBold.copyWith(
+                            height: 24 / 18,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(false),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: sheetColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: colorScheme.textBase,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    context.strings.blockLegacyKitRecoveryMessage,
+                    style: textTheme.small.copyWith(
+                      color: colorScheme.textMuted,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: GradientButton(
+                      text: context.strings.rejectRecovery,
+                      height: 52,
+                      textStyle: textTheme.small.copyWith(height: 20 / 14),
+                      backgroundColor: colorScheme.warning700,
+                      onTap: () => Navigator.of(context).pop(true),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<bool> _authenticate(String reason) async {
@@ -573,30 +643,57 @@ class _RecoveryBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = getEnteColorScheme(context);
     final textTheme = getEnteTextTheme(context);
-    final createdAt = _formatDateTime(session.createdAt);
-    final waitTill = _formatWaitRemaining(session.waitTill);
+    final availableAt = _formatRecoveryAvailableAt(session.waitTill);
+    final bannerColor = colorScheme.isLightTheme
+        ? const Color(0xFFFAEBEB)
+        : const Color(0xFF292929);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.warning400.withValues(alpha: 0.13),
+        color: bannerColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.strings.legacyKitRecoveryInProgress,
-            style: textTheme.bodyBold.copyWith(color: colorScheme.warning400),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 20,
+                child: Center(
+                  child: LegacyKitRecoveryAlertIcon(
+                    color: colorScheme.warning400,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.strings.legacyKitRecoveryAttemptInProgress,
+                  style: textTheme.bodyBold.copyWith(
+                    color: colorScheme.warning400,
+                    height: 20 / 14,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            context.strings.legacyKitRecoveryWindow(createdAt, waitTill),
-            style: textTheme.smallMuted,
+            context.strings.legacyKitRecoveryAttemptMessage(availableAt),
+            style: textTheme.mini.copyWith(
+              color: colorScheme.textMuted,
+              height: 16 / 12,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           GradientButton(
             text: context.strings.rejectRecovery,
+            height: 52,
+            textStyle: textTheme.small.copyWith(height: 20 / 14),
             backgroundColor: colorScheme.warning700,
             onTap: () async => onBlockRecovery(),
           ),
@@ -605,16 +702,11 @@ class _RecoveryBanner extends StatelessWidget {
     );
   }
 
-  String _formatDateTime(int micros) {
-    final dateTime = DateTime.fromMicrosecondsSinceEpoch(micros).toLocal();
-    return DateFormat.yMMMd().add_jm().format(dateTime);
-  }
-
-  String _formatWaitRemaining(int waitRemainingMicros) {
+  String _formatRecoveryAvailableAt(int waitRemainingMicros) {
     final dateTime = DateTime.now().add(
       Duration(microseconds: waitRemainingMicros),
     );
-    return DateFormat.yMMMd().add_jm().format(dateTime);
+    return DateFormat.yMMMMd().add_jm().format(dateTime);
   }
 }
 
