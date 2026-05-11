@@ -23,18 +23,17 @@ function write(file, text) {
     fs.writeFileSync(file, text);
 }
 
-function sourceVersion() {
-    const version = JSON.parse(read(files.packageJson)).version;
+function parseVersion(version) {
     const match = /^(\d+\.\d+\.\d+)(-beta)?$/.exec(version);
-    if (!match) throw new Error(`Invalid Ensu desktop version: ${version}`);
+    if (!match) throw new Error(`Invalid Ensu version: ${version}`);
     return {
-        version: match[1],
-        channel: match[2] ? "beta" : "stable",
+        source: version,
+        marketing: match[1],
     };
 }
 
-function desktopVersion(version, channel) {
-    return channel === "beta" ? `${version}-beta` : version;
+function sourceVersion() {
+    return parseVersion(JSON.parse(read(files.packageJson)).version);
 }
 
 function value(file, regex) {
@@ -57,58 +56,52 @@ function expect(label, actual, wanted) {
 }
 
 function check() {
-    const { version, channel } = sourceVersion();
-    const desktop = desktopVersion(version, channel);
+    const version = sourceVersion();
 
-    expect("tauri.conf.json", JSON.parse(read(files.tauri)).package?.version, desktop);
-    expect("Cargo.toml", value(files.cargoToml, /\[package\][\s\S]*?^version = "([^"]+)"/m), desktop);
-    expect("Cargo.lock", value(files.cargoLock, /\[\[package\]\]\nname = "ensu-tauri"\nversion = "([^"]+)"/), desktop);
-    expect("Android versionName", value(files.android, /versionName = "([^"]+)"/), version);
-    expect("Info.plist", value(files.plist, /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/), version);
+    expect("tauri.conf.json", JSON.parse(read(files.tauri)).package?.version, version.source);
+    expect("Cargo.toml", value(files.cargoToml, /\[package\][\s\S]*?^version = "([^"]+)"/m), version.source);
+    expect("Cargo.lock", value(files.cargoLock, /\[\[package\]\]\nname = "ensu-tauri"\nversion = "([^"]+)"/), version.source);
+    expect("Android versionName", value(files.android, /versionName = "([^"]+)"/), version.marketing);
+    expect("Info.plist", value(files.plist, /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/), version.marketing);
 
     const xcodeMarketingVersions = [...read(files.xcode).matchAll(/MARKETING_VERSION = ([^;]+);/g)];
     if (!xcodeMarketingVersions.length) throw new Error("Xcode MARKETING_VERSION: no entries found");
     for (const match of xcodeMarketingVersions) {
-        expect("Xcode MARKETING_VERSION", match[1], version);
+        expect("Xcode MARKETING_VERSION", match[1], version.marketing);
     }
 }
 
-function setVersion(version, channel) {
-    if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error(`Invalid version: ${version}`);
-    if (!["beta", "stable"].includes(channel)) throw new Error(`Invalid channel: ${channel}`);
+function setVersion(source) {
+    const version = parseVersion(source);
 
-    const desktop = desktopVersion(version, channel);
     const packageJson = JSON.parse(read(files.packageJson));
-    packageJson.version = desktop;
+    packageJson.version = version.source;
     write(files.packageJson, `${JSON.stringify(packageJson, null, 2)}\n`);
 
-    replace(files.tauri, /("package"\s*:\s*\{[\s\S]*?"version"\s*:\s*")[^"]+(")/, (_m, a, b) => `${a}${desktop}${b}`);
-    replace(files.cargoToml, /(\[package\][\s\S]*?^version = ")[^"]+(")/m, (_m, a, b) => `${a}${desktop}${b}`);
-    replace(files.cargoLock, /(\[\[package\]\]\nname = "ensu-tauri"\nversion = ")[^"]+(")/, (_m, a, b) => `${a}${desktop}${b}`);
-    replace(files.android, /versionName = "[^"]+"/, `versionName = "${version}"`);
-    replace(files.xcode, /MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`);
-    replace(files.plist, /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/, (_m, a, b) => `${a}${version}${b}`);
+    replace(files.tauri, /("package"\s*:\s*\{[\s\S]*?"version"\s*:\s*")[^"]+(")/, (_m, a, b) => `${a}${version.source}${b}`);
+    replace(files.cargoToml, /(\[package\][\s\S]*?^version = ")[^"]+(")/m, (_m, a, b) => `${a}${version.source}${b}`);
+    replace(files.cargoLock, /(\[\[package\]\]\nname = "ensu-tauri"\nversion = ")[^"]+(")/, (_m, a, b) => `${a}${version.source}${b}`);
+    replace(files.android, /versionName = "[^"]+"/, `versionName = "${version.marketing}"`);
+    replace(files.xcode, /MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version.marketing};`);
+    replace(files.plist, /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/, (_m, a, b) => `${a}${version.marketing}${b}`);
 }
 
 function usage() {
     console.error(`Usage:
-  node .github/scripts/ensu-version.mjs check
-  node .github/scripts/ensu-version.mjs github-output
-  node .github/scripts/ensu-version.mjs set --version 0.1.16 --channel beta
-  node .github/scripts/ensu-version.mjs set --version 0.1.16 --channel stable`);
+  node .github/scripts/ensu-version.mjs get
+  node .github/scripts/ensu-version.mjs set 0.1.16-beta
+  node .github/scripts/ensu-version.mjs set 0.1.16`);
 }
 
-const [command = "check", ...args] = process.argv.slice(2);
+const [command = "get", ...args] = process.argv.slice(2);
 
 try {
-    if (command === "check") {
+    if (command === "get") {
         check();
-    } else if (command === "github-output") {
-        const version = sourceVersion();
-        console.log(`version=${version.version}`);
-        console.log(`channel=${version.channel}`);
+        console.log(sourceVersion().marketing);
     } else if (command === "set") {
-        setVersion(args[args.indexOf("--version") + 1], args[args.indexOf("--channel") + 1]);
+        setVersion(args[0]);
+        check();
     } else {
         usage();
         process.exit(2);

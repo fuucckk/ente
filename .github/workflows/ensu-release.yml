@@ -35,6 +35,8 @@ jobs:
             release_body: ${{ steps.prepare.outputs.release_body }}
             release_draft: ${{ steps.prepare.outputs.release_draft }}
             release_prerelease: ${{ steps.prepare.outputs.release_prerelease }}
+            release_version: ${{ steps.prepare.outputs.release_version }}
+            is_release_tag: ${{ steps.prepare.outputs.is_release_tag }}
             short_sha: ${{ steps.prepare.outputs.short_sha }}
 
         steps:
@@ -57,24 +59,12 @@ jobs:
 
                   commit_sha="$(git rev-parse HEAD)"
 
-                  node .github/scripts/ensu-version.mjs check
-                  source_version=""
-                  source_channel=""
-                  while IFS='=' read -r key value; do
-                      case "${key}" in
-                          version) source_version="${value}" ;;
-                          channel) source_channel="${value}" ;;
-                      esac
-                  done < <(node .github/scripts/ensu-version.mjs github-output)
+                  version="$(node .github/scripts/ensu-version.mjs get)"
 
                   if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                      expected_tag="ensu-v${source_version}"
+                      expected_tag="ensu-v${version}"
                       if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
-                          echo "::error::Tag ${GITHUB_REF_NAME} does not match source version ${source_version}"
-                          exit 1
-                      fi
-                      if [[ "${source_channel}" != "stable" ]]; then
-                          echo "::error::Stable releases require the Ensu source channel to be stable"
+                          echo "::error::Tag ${GITHUB_REF_NAME} does not match Ensu version ${version}"
                           exit 1
                       fi
 
@@ -83,17 +73,14 @@ jobs:
                       RELEASE_BODY=""
                       RELEASE_DRAFT=true
                       RELEASE_PRERELEASE=false
+                      IS_RELEASE_TAG=true
                   else
-                      if [[ "${source_channel}" != "beta" ]]; then
-                          echo "::error::Nightly releases require the Ensu source channel to be beta"
-                          exit 1
-                      fi
-
-                      RELEASE_TAG="ensu-v${source_version}-beta"
+                      RELEASE_TAG="ensu-v${version}-beta"
                       RELEASE_NAME="${RELEASE_TAG}"
                       RELEASE_BODY="Nightly builds"
                       RELEASE_DRAFT=false
                       RELEASE_PRERELEASE=true
+                      IS_RELEASE_TAG=false
                   fi
 
                   echo "should_build=true" >> "${GITHUB_OUTPUT}"
@@ -104,6 +91,8 @@ jobs:
                   echo "release_body=${RELEASE_BODY}" >> "${GITHUB_OUTPUT}"
                   echo "release_draft=${RELEASE_DRAFT}" >> "${GITHUB_OUTPUT}"
                   echo "release_prerelease=${RELEASE_PRERELEASE}" >> "${GITHUB_OUTPUT}"
+                  echo "release_version=${version}" >> "${GITHUB_OUTPUT}"
+                  echo "is_release_tag=${IS_RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
 
     release-desktop:
         needs: release-metadata
@@ -134,6 +123,8 @@ jobs:
             RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
             RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
             RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
+            RELEASE_VERSION: ${{ needs.release-metadata.outputs.release_version }}
+            IS_RELEASE_TAG: ${{ needs.release-metadata.outputs.is_release_tag }}
             HAS_WINDOWS_SIGNING: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_ENDPOINT != '' && secrets.AZURE_CODE_SIGNING_NAME != '' && secrets.AZURE_CERT_PROFILE_NAME != '' }}
 
         steps:
@@ -148,6 +139,10 @@ jobs:
                   node-version: 22
                   cache: "yarn"
                   cache-dependency-path: "web/yarn.lock"
+
+            - name: Set release version
+              if: env.IS_RELEASE_TAG == 'true'
+              run: node .github/scripts/ensu-version.mjs set "${RELEASE_VERSION}"
 
             - name: Activate Yarn 1.22.22
               run: |
@@ -319,6 +314,8 @@ jobs:
             RELEASE_BODY: ${{ needs.release-metadata.outputs.release_body }}
             RELEASE_DRAFT: ${{ needs.release-metadata.outputs.release_draft }}
             RELEASE_PRERELEASE: ${{ needs.release-metadata.outputs.release_prerelease }}
+            RELEASE_VERSION: ${{ needs.release-metadata.outputs.release_version }}
+            IS_RELEASE_TAG: ${{ needs.release-metadata.outputs.is_release_tag }}
             SHORT_SHA: ${{ needs.release-metadata.outputs.short_sha }}
             HAS_ANDROID_SIGNING: ${{ secrets.SIGNING_KEY_ENSU != '' && secrets.SIGNING_STORE_PASSWORD_ENSU != '' && secrets.SIGNING_KEY_ALIAS_ENSU != '' && secrets.SIGNING_KEY_PASSWORD_ENSU != '' }}
             HAS_PLAYSTORE_SERVICE_ACCOUNT: ${{ secrets.SERVICE_ACCOUNT_JSON != '' }}
@@ -351,6 +348,12 @@ jobs:
 
             - name: Setup Rust
               uses: dtolnay/rust-toolchain@stable
+
+            - name: Set release version
+              if: env.IS_RELEASE_TAG == 'true'
+              run: |
+                  cd ../../../../..
+                  node .github/scripts/ensu-version.mjs set "${RELEASE_VERSION}"
 
             - name: Generate Android bindings
               run: |
@@ -391,7 +394,7 @@ jobs:
                   mkdir -p artifacts
                   cp app-ui/build/outputs/apk/release/app-ui-release.apk artifacts/${{ env.RELEASE_TAG }}.apk
 
-            - name: Upload Android APK to draft GitHub release
+            - name: Upload Android APK to GitHub release
               if: env.HAS_ANDROID_SIGNING == 'true'
               uses: ncipollo/release-action@v1
               with:
@@ -427,8 +430,8 @@ jobs:
                   color: 0xFDCE13
 
     cleanup-beta-release:
-        needs: [release-desktop, build-android]
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        needs: [release-metadata, release-desktop, build-android]
+        if: needs.release-metadata.outputs.is_release_tag == 'true'
         runs-on: ubuntu-22.04
 
         steps:

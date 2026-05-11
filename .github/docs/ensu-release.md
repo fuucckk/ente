@@ -25,7 +25,7 @@ Scheduled nightly builds are skipped while a release branch exists.
 git switch main
 git pull
 git switch -c ensu-v0.1.17-beta
-node .github/scripts/ensu-version.mjs set --version 0.1.17 --channel beta
+node .github/scripts/ensu-version.mjs set 0.1.17-beta
 git commit -am "Start Ensu 0.1.17 beta"
 git push -u origin ensu-v0.1.17-beta
 ```
@@ -44,25 +44,18 @@ git push
 
 The push updates the `ensu-v0.1.16-beta` prerelease.
 
-## Promote release
+## Draft release
 
-First change the local release branch to stable:
+Tag the release branch commit you want to ship:
 
 ```bash
 git switch release/ensu-v0.1.16
-node .github/scripts/ensu-version.mjs set --version 0.1.16 --channel stable
-git commit -am "Mark Ensu 0.1.16 stable"
-```
-
-Then tag that commit and push the tag:
-
-```bash
+git pull
 git tag ensu-v0.1.16
 git push origin ensu-v0.1.16
 ```
 
-The workflow creates draft release `ensu-v0.1.16` and removes
-`ensu-v0.1.16-beta`.
+The workflow creates draft release `ensu-v0.1.16` and removes `ensu-v0.1.16-beta`.
 
 ## Cleanup
 
