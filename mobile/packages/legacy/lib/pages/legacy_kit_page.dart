@@ -545,7 +545,7 @@ class _LegacyKitPageState extends State<LegacyKitPage> {
             part.name,
             fallback: "part-${part.index}",
           );
-    return "ente-recovery-sheet-$name";
+    return "ente-legacy-kit-$name";
   }
 
   String _fileNameComponent(String value, {required String fallback}) {
