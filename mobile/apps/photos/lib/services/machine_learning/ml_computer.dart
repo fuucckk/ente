@@ -5,6 +5,7 @@ import "dart:typed_data" show Float32List;
 import "package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart"
     show Uint64List;
 import "package:logging/logging.dart";
+import "package:photos/core/errors.dart";
 import "package:photos/models/ml/vector.dart";
 import "package:photos/service_locator.dart"
     show flagService, isLocalGalleryMode;
@@ -105,6 +106,13 @@ class MLComputer extends SuperIsolate {
         },
       }) as List<double>;
       return textEmbedding;
+    } on WiFiUnavailableError catch (e, s) {
+      _logger.warning(
+        "Could not run clip text because model is unavailable",
+        e,
+        s,
+      );
+      rethrow;
     } catch (e, s) {
       _logger.severe("Could not run clip text in isolate", e, s);
       rethrow;
@@ -158,7 +166,10 @@ class MLComputer extends SuperIsolate {
         final String? downloadedModelPath =
             await ClipTextEncoder.instance.downloadModelSafe();
         if (downloadedModelPath == null) {
-          throw Exception("Could not download clip text model, no wifi");
+          throw WiFiUnavailableError(
+            "Could not download clip text model because high bandwidth "
+            "connectivity is unavailable",
+          );
         }
         _clipTextModelPath = downloadedModelPath;
 
