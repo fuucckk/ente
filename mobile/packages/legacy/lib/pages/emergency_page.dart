@@ -541,7 +541,7 @@ class _EmergencyPageState extends State<EmergencyPage> {
           menuItemColor: cardColor,
           singleBorderRadius: 20,
           trailingIcon: Icons.chevron_right,
-          trailingIconColor: colorScheme.strokeBase,
+          trailingIconIsMuted: true,
           surfaceExecutionStates: false,
           alwaysShowSuccessState: false,
           onTap: () async {
