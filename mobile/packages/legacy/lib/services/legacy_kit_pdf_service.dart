@@ -22,6 +22,8 @@ class LegacyKitPdfService {
       "$_assetRoot/legacy_kit_sheet_ente_com_badge.svg";
   static const String _personIconAsset =
       "$_assetRoot/legacy_kit_sheet_person_icon.svg";
+  static const String _nunitoExtraBoldAsset =
+      "$_assetRoot/fonts/Nunito-ExtraBold.ttf";
   static const String _nunitoBlackAsset = "$_assetRoot/fonts/Nunito-Black.ttf";
   static const String _interRegularAsset = "assets/fonts/Inter-Regular.ttf";
   static const String _interMediumAsset = "assets/fonts/Inter-Medium.ttf";
@@ -31,7 +33,7 @@ class LegacyKitPdfService {
   static const PdfColor _background = PdfColor.fromInt(0xFFFAFAFA);
   static const PdfColor _green = PdfColor.fromInt(0xFF08C225);
   static const PdfColor _blue = PdfColor.fromInt(0xFF1071FF);
-  static const double _heroBadgeOpacity = 0.36;
+  static const PdfColor _heroBadge = PdfColor.fromInt(0xFF0A48A3);
   static const PdfColor _dark = PdfColor.fromInt(0xFF212121);
   static const PdfColor _black = PdfColor.fromInt(0xFF000000);
   static const PdfColor _white = PdfColor.fromInt(0xFFFFFFFF);
@@ -73,6 +75,7 @@ class LegacyKitPdfService {
     final interRegular = await _loadFont(_interRegularAsset);
     final interMedium = await _loadFont(_interMediumAsset);
     final interBold = await _loadFont(_interBoldAsset);
+    final nunitoExtraBold = await _loadFont(_nunitoExtraBoldAsset);
     final nunitoBlack = await _loadFont(_nunitoBlackAsset);
     final baseFont = interMedium ?? interRegular;
 
@@ -84,6 +87,7 @@ class LegacyKitPdfService {
       enteLogoBlackSvg: await _loadSvg(_enteLogoBlackAsset),
       enteComBadgeSvg: await _loadSvg(_enteComBadgeAsset),
       personIconSvg: await _loadSvg(_personIconAsset),
+      nunitoExtraBold: nunitoExtraBold ?? nunitoBlack,
       nunitoBlack: nunitoBlack,
       theme: baseFont == null && interBold == null
           ? null
@@ -202,7 +206,7 @@ class LegacyKitPdfService {
                 style: pw.TextStyle(
                   color: _black,
                   fontSize: 15.7,
-                  font: assets.nunitoBlack,
+                  font: assets.nunitoExtraBold,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -220,7 +224,7 @@ class LegacyKitPdfService {
                 style: pw.TextStyle(
                   color: _black,
                   fontSize: 20,
-                  font: assets.nunitoBlack,
+                  font: assets.nunitoExtraBold,
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
@@ -320,7 +324,7 @@ class LegacyKitPdfService {
           style: pw.TextStyle(
             color: const PdfColor.fromInt(0xFF1C1C1C),
             fontSize: 20,
-            font: assets.nunitoBlack,
+            font: assets.nunitoExtraBold,
             fontWeight: pw.FontWeight.bold,
           ),
         ),
@@ -430,7 +434,7 @@ class LegacyKitPdfService {
             style: pw.TextStyle(
               color: _white,
               fontSize: 32,
-              font: assets.nunitoBlack,
+              font: assets.nunitoExtraBold,
               fontWeight: pw.FontWeight.bold,
               lineSpacing: 0,
             ),
@@ -469,13 +473,10 @@ class LegacyKitPdfService {
       child: pw.Stack(
         children: [
           pw.Positioned.fill(
-            child: pw.Opacity(
-              opacity: _heroBadgeOpacity,
-              child: pw.Container(
-                decoration: const pw.BoxDecoration(
-                  color: _black,
-                  borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
-                ),
+            child: pw.Container(
+              decoration: const pw.BoxDecoration(
+                color: _heroBadge,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(12)),
               ),
             ),
           ),
@@ -604,16 +605,7 @@ class LegacyKitPdfService {
                         const pw.BorderRadius.all(pw.Radius.circular(12)),
                   ),
                   child: pw.Center(
-                    child: pw.Text(
-                      _displayCopyCode(copyCode),
-                      textAlign: pw.TextAlign.center,
-                      style: pw.TextStyle(
-                        color: _background,
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                        lineSpacing: 3,
-                      ),
-                    ),
+                    child: _copyCodeText(copyCode),
                   ),
                 ),
               ],
@@ -668,7 +660,37 @@ class LegacyKitPdfService {
     );
   }
 
-  String _displayCopyCode(String copyCode) {
+  pw.Widget _copyCodeText(String copyCode) {
+    return pw.SizedBox(
+      width: 218,
+      child: pw.Column(
+        mainAxisSize: pw.MainAxisSize.min,
+        children: _displayCopyCodeLines(copyCode)
+            .map(
+              (line) => pw.SizedBox(
+                height: 17,
+                child: pw.FittedBox(
+                  fit: pw.BoxFit.scaleDown,
+                  child: pw.Text(
+                    line,
+                    textAlign: pw.TextAlign.center,
+                    softWrap: false,
+                    maxLines: 1,
+                    style: pw.TextStyle(
+                      color: _background,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  List<String> _displayCopyCodeLines(String copyCode) {
     const chunkSize = 33;
     final compactCode = copyCode.replaceAll(RegExp(r"\s+"), "");
     final chunks = <String>[];
@@ -678,7 +700,7 @@ class LegacyKitPdfService {
           nextIndex > compactCode.length ? compactCode.length : nextIndex;
       chunks.add(compactCode.substring(index, end));
     }
-    return chunks.join("\n");
+    return chunks;
   }
 
   pw.Widget _visitInstruction(String recoveryUrl) {
@@ -807,6 +829,7 @@ class _SheetAssets {
   final String? enteLogoBlackSvg;
   final String? enteComBadgeSvg;
   final String? personIconSvg;
+  final pw.Font? nunitoExtraBold;
   final pw.Font? nunitoBlack;
   final pw.ThemeData? theme;
 
@@ -818,6 +841,7 @@ class _SheetAssets {
     required this.enteLogoBlackSvg,
     required this.enteComBadgeSvg,
     required this.personIconSvg,
+    required this.nunitoExtraBold,
     required this.nunitoBlack,
     required this.theme,
   });
