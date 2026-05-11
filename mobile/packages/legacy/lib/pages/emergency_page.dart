@@ -1072,7 +1072,7 @@ class _LegacyKitLeadingIcon extends StatelessWidget {
               left: 20,
               top: 20,
               child: SizedBox.square(
-                dimension: 16,
+                dimension: 18,
                 child: Center(
                   child: LegacyKitAlertIcon(),
                 ),
