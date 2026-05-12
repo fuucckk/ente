@@ -7,6 +7,7 @@ import "package:chewie/chewie.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:logging/logging.dart";
+import "package:media_extension/media_extension.dart";
 import "package:media_extension/media_extension_action_types.dart";
 import "package:photo_manager/photo_manager.dart";
 import "package:photo_manager_image_provider/photo_manager_image_provider.dart";
@@ -41,6 +42,7 @@ class FileViewerState extends State<FileViewer> {
   double? aspectRatio;
   Future<AssetEntity?>? mediaStoreAssetFuture;
   Future<DetailPageConfiguration?>? reviewGalleryConfigFuture;
+  Future<Uint8List?>? grantedImageBytesFuture;
   bool _isInitializingVideoController = false;
   bool _isClosingViewer = false;
   bool get _isExternalView =>
@@ -389,6 +391,42 @@ class FileViewerState extends State<FileViewer> {
     return file;
   }
 
+  Future<Uint8List?> _readGrantedImageBytes(String uri) async {
+    try {
+      final bytes = await MediaExtension().readUriBytes(uri);
+      if (bytes == null || bytes.isEmpty) {
+        _logger.severe("failed to read image bytes for $uri");
+        return null;
+      }
+      return bytes;
+    } catch (e, s) {
+      _logger.severe("failed to read image bytes for $uri", e, s);
+      return null;
+    }
+  }
+
+  Widget _buildGrantedImageFallback(String data) {
+    final uri = Uri.tryParse(data);
+    if (uri?.scheme != "content") {
+      _logger.severe("unsupported image uri $data");
+      return const Icon(Icons.error);
+    }
+    final future = grantedImageBytesFuture ??= _readGrantedImageBytes(data);
+    return FutureBuilder<Uint8List?>(
+      future: future,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes != null) {
+          return _boundedPhotoView(MemoryImage(bytes));
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const CircularProgressIndicator();
+        }
+        return const Icon(Icons.error);
+      },
+    );
+  }
+
   Widget _buildImageViewer() {
     final sharedMediaPath = widget.sharedMediaFile?.path;
     if (sharedMediaPath != null) {
@@ -414,14 +452,20 @@ class FileViewerState extends State<FileViewer> {
           final asset = snapshot.data;
           if (asset == null) {
             if (snapshot.connectionState == ConnectionState.done) {
-              _logger.severe("failed to resolve media store image $data");
-              return const Icon(Icons.error);
+              _logger.warning(
+                "failed to resolve media store image, falling back to uri",
+              );
+              return _buildGrantedImageFallback(data);
             }
             return const CircularProgressIndicator();
           }
           return _boundedPhotoView(AssetEntityImageProvider(asset));
         },
       );
+    }
+
+    if (uri?.scheme == "content") {
+      return _buildGrantedImageFallback(data);
     }
 
     if (uri != null && uri.scheme.isNotEmpty) {
