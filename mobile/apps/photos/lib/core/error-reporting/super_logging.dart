@@ -340,6 +340,10 @@ class SuperLogging {
     LogRecord? rec,
   }) async {
     try {
+      if (kDebugMode && error is StackTrace) {
+        _reportInvalidLoggerUsageInDebug(rec, error);
+      }
+
       if (_shouldSkipSentry(error)) {
         return;
       }
@@ -373,6 +377,27 @@ class SuperLogging {
       $.info('Sending report to sentry failed: $e');
       $.info('Original error: $error');
     }
+  }
+
+  static void _reportInvalidLoggerUsageInDebug(
+    LogRecord? rec,
+    StackTrace stack,
+  ) {
+    assert(() {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: StateError(
+            "Logger call passed a StackTrace as the error argument. "
+            "Use logger.warning(message, error, stackTrace) or "
+            "logger.severe(message, error, stackTrace)."
+            "${rec == null ? '' : ' Logger: ${rec.loggerName}.'}",
+          ),
+          stack: stack,
+          library: "SuperLogging",
+        ),
+      );
+      return true;
+    }());
   }
 
   /// Determine execution context from prefix
