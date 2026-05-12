@@ -983,26 +983,13 @@ Future<MLResult> analyzeImageRust(Map args) async {
         rethrow;
       }
       if (fallback == null) {
-        if (_shouldStoreEmptyResultForRustDecodeFailure(
-          primaryError: e,
-          fallbackReturnedEmpty: true,
-        )) {
-          _logger.warning(
-            "JPEG fallback conversion returned null/empty bytes for fileID $enteFileID (format: $fileFormat); storing empty result instead",
-          );
-          throw _asInvalidImageFormatExceptionForRustDecodeFailure(
-            enteFileID: enteFileID,
-            fileFormat: fileFormat,
-            primaryError: e,
-          );
-        }
-        _logger.severe(
-          "JPEG fallback conversion returned null/empty bytes for fileID $enteFileID (format: $fileFormat)",
-          e,
-          s,
+        _logger.warning(
+          "JPEG fallback conversion returned null/empty bytes for fileID $enteFileID (format: $fileFormat); storing empty result instead",
         );
-        throw Exception(
-          "RustMLDecodeFallbackFailed: JPEG fallback conversion returned null/empty bytes for fileID $enteFileID (format: $fileFormat)",
+        throw _asInvalidImageFormatExceptionForRustDecodeFailure(
+          enteFileID: enteFileID,
+          fileFormat: fileFormat,
+          primaryError: e,
         );
       }
 
@@ -1176,12 +1163,7 @@ bool _isRustDecodeIssue(Object error) {
 bool _shouldStoreEmptyResultForRustDecodeFailure({
   required Object primaryError,
   Object? fallbackError,
-  bool fallbackReturnedEmpty = false,
 }) {
-  if (fallbackReturnedEmpty) {
-    return _isFileSpecificDecodeFailure(primaryError);
-  }
-
   if (fallbackError == null) {
     return false;
   }
