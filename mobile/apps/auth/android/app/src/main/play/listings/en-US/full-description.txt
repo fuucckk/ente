@@ -12,10 +12,6 @@ Our customers absolutely love it.
 
 - Authy's best replacement. Open source, desktop support, synchronization, convenient token export. Huge thanks to the developers, I hope your product will become popular and famous. - Sergey Tverye
 
-- By far my favourite 2FA app. Over the years I've moved from Google Authenticator to Authy and have now happily "settled" with Ente Auth. - Dan Walsh
-
-- The best MFA app I ever used. I will never go back to Google Authenticator. - Pierre-Philippe Lessard
-
 Ente Auth is recommended by Linus Tech Tips, CERN, Zerodha and many others.
 
 ✨ Features
@@ -46,9 +42,3 @@ We all have sent multiple messages to that colleague who keeps asking for the 2F
 
 ADD NOTES
 Use notes to save any additional information including recovery codes. All notes are backed up with end to end encryption so you dont have to worry about losing them.
-
-
-SUPPORT
-
-If you need help, please write to support@ente.com, and someone will get in touch with you.
-If you have feature requests, please visit @ https://github.com/ente-io/ente/discussions/categories/enhancements
