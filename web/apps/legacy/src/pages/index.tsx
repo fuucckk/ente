@@ -52,6 +52,11 @@ const slotLabels: Record<SlotID, string> = {
 
 const slotNumbers: Record<SlotID, number> = { first: 1, second: 2 };
 
+const inactiveLegacyKitRequestPaths = [
+    "/legacy-kits/recovery/challenge",
+    "/legacy-kits/recovery/open",
+];
+
 const getErrorMessage = (error: unknown) =>
     error instanceof Error
         ? error.message
@@ -64,7 +69,9 @@ const isInactiveLegacyKitError = (error: unknown) => {
     return (
         message.includes("legacy kit not found") ||
         (message.includes("http 404") &&
-            message.includes("/legacy-kits/recovery/challenge"))
+            inactiveLegacyKitRequestPaths.some((path) =>
+                message.includes(path),
+            ))
     );
 };
 
