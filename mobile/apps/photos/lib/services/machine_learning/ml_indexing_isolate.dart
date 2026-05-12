@@ -1,7 +1,7 @@
 import "dart:async";
 import "dart:io" show Platform;
 
-import "package:flutter/foundation.dart" show debugPrint;
+import "package:flutter/foundation.dart" show debugPrint, kDebugMode;
 import "package:logging/logging.dart";
 import "package:photos/service_locator.dart"
     show flagService, isLocalGalleryMode, localSettings;
@@ -111,9 +111,11 @@ class MLIndexingIsolate extends SuperIsolate {
         e,
         s,
       );
-      debugPrint(
-        "This image with fileID ${instruction.fileKey} has name ${instruction.file.displayName}.",
-      );
+      if (kDebugMode) {
+        debugPrint(
+          "This image with fileID ${instruction.fileKey} has name ${instruction.file.displayName}.",
+        );
+      }
       rethrow;
     }
 
