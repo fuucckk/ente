@@ -188,7 +188,7 @@ class UserService {
       }
     } catch (e, s) {
       await dialog.hide();
-      _logger.severe(e, s);
+      _logger.severe("Failed to send OTT", e, s);
       unawaited(showGenericErrorBottomSheet(context: context, error: e));
     }
   }
@@ -1081,7 +1081,7 @@ class UserService {
       return true;
     } catch (e, s) {
       await dialog.hide();
-      _logger.severe(e, s);
+      _logger.severe("Failed to enable 2FA", e, s);
       if (e is DioException) {
         if (e.response != null && e.response!.statusCode == 401) {
           // ignore: unawaited_futures
@@ -1168,7 +1168,7 @@ class UserService {
         await dialog.hide();
       } catch (e, s) {
         await dialog.hide();
-        _logger.severe(e, s);
+        _logger.severe("Failed to create recovery key", e, s);
         rethrow;
       }
     }
