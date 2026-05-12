@@ -1,5 +1,13 @@
 Latest changes:
+- Laurens: Add Android review intent (review take photos using ente on supported camera apps)
+- Laurens: Add Android gallery pick intent (e.g. pick whatsapp photos from ente gallery)
 - Aman: Batch large free up space deletes to avoid oversized OS delete requests
+- Ashil: Fix some popup menus auto closing immediately after opening on iPads
+- Ashil: Fix social notifications not working on iOS
+- Laurens: Improved memories loading
+- Laurens: Add "QR Codes" discovery item
+- Laurens: Fixes to widget, most importantly to hidden files and showing album title
+- Neeraj: Add HTTP/2 support with HTTP/1.1 fallback for Photos API requests
 
 Still behind internal flag:
 - Amrithesh: (I) ML/Pet recognition [Indexing]
