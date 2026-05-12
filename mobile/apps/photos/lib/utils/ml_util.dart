@@ -1156,6 +1156,9 @@ String formatExpectedMlSkipReasonForLogs(Object error) {
 }
 
 bool _isRustDecodeIssue(Object error) {
+  if (error is rust_ml.RustMlError_Decode) {
+    return true;
+  }
   final message = error.toString().toLowerCase();
   return message.contains("decode error");
 }
