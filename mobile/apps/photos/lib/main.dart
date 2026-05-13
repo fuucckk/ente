@@ -241,12 +241,11 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
   try {
     final PackageInfo packageInfo = await PackageInfo.fromPlatform();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    Configuration.instance.initPreferences(prefs);
     await _scheduleHeartBeat(prefs, true);
     await _ensureRustInitialized(via: 'workmanager:$taskId');
 
     _logger.info("[BG TASK] NetworkClient init $tlog");
-    await NetworkClient.instance.init(packageInfo);
+    await NetworkClient.instance.init(packageInfo, prefs);
     _logger.info("[BG TASK] NetworkClient init done $tlog");
 
     ServiceLocator.instance.init(
@@ -259,7 +258,6 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
 
     _logger.info("(for debugging) Configuration init $tlog");
     await Configuration.instance.init();
-    NetworkClient.instance.refreshEndpoint();
     _logger.info("(for debugging) Configuration done $tlog");
 
     // App LifeCycle
@@ -373,7 +371,6 @@ Future<void> _init(
     );
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    Configuration.instance.initPreferences(preferences);
     await _logFGHeartBeatInfo(preferences);
     _logger.info("_logFGHeartBeatInfo done $tlog");
     unawaited(_scheduleHeartBeat(preferences, isBackground));
@@ -392,7 +389,7 @@ Future<void> _init(
     CryptoUtil.init();
 
     _logger.info("NetworkClient init $tlog");
-    await NetworkClient.instance.init(packageInfo);
+    await NetworkClient.instance.init(packageInfo, preferences);
     _logger.info("NetworkClient init done $tlog");
 
     ServiceLocator.instance.init(
@@ -407,7 +404,6 @@ Future<void> _init(
 
     _logger.info("Configuration init $tlog");
     await Configuration.instance.init();
-    NetworkClient.instance.refreshEndpoint();
     _logger.info("Configuration done $tlog");
 
     await MemoryShareService.instance.init();

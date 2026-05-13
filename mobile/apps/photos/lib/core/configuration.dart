@@ -26,7 +26,6 @@ import "package:photos/db/ml/db.dart";
 import 'package:photos/db/trash_db.dart';
 import 'package:photos/db/upload_locks_db.dart';
 import "package:photos/events/app_mode_changed_event.dart";
-import "package:photos/events/endpoint_updated_event.dart";
 import 'package:photos/events/signed_in_event.dart';
 import 'package:photos/events/user_logged_out_event.dart';
 import 'package:photos/gateways/users/models/key_attributes.dart';
@@ -55,10 +54,6 @@ class Configuration {
   Configuration._privateConstructor();
 
   static final Configuration instance = Configuration._privateConstructor();
-  static const endpoint = String.fromEnvironment(
-    "endpoint",
-    defaultValue: kDefaultProductionEndpoint,
-  );
 
   static const emailKey = "email";
   static const foldersToBackUpKey = "folders_to_back_up";
@@ -74,14 +69,12 @@ class Configuration {
   static const userIDKey = "user_id";
   static const hasMigratedSecureStorageKey = "has_migrated_secure_storage";
   static const anonymousUserIDKey = "anonymous_user_id";
-  static const endPointKey = "endpoint";
   static final _logger = Logger("Configuration");
 
   String? _cachedToken;
   late String _documentsDirectory;
   String? _key;
   late SharedPreferences _preferences;
-  bool _preferencesInitialized = false;
   String? _secretKey;
   late FlutterSecureStorage _secureStorage;
   late String _tempDocumentsDirPath;
@@ -91,16 +84,9 @@ class Configuration {
   late String _sharedDocumentsMediaDirectory;
   String? _volatilePassword;
 
-  void initPreferences(SharedPreferences preferences) {
-    _preferences = preferences;
-    _preferencesInitialized = true;
-  }
-
   Future<void> init() async {
     try {
-      if (!_preferencesInitialized) {
-        initPreferences(await SharedPreferences.getInstance());
-      }
+      _preferences = await SharedPreferences.getInstance();
       _secureStorage = const FlutterSecureStorage(
         iOptions: IOSOptions(
           accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -528,26 +514,6 @@ class Configuration {
       secretKey,
     );
     await setToken(CryptoUtil.bin2base64(token, urlSafe: true));
-  }
-
-  String getHttpEndpoint() {
-    final savedEndpoint = _preferences.getString(endPointKey) ?? endpoint;
-    if (savedEndpoint == kLegacyProductionEndpoint) {
-      return kDefaultProductionEndpoint;
-    }
-    return savedEndpoint;
-  }
-
-  // isEnteProduction checks if the current endpoint is the default production
-  // endpoint. This is used to determine if the app is in production mode or
-  // not. The default production endpoint is set in the environment variable
-  bool isEnteProduction() {
-    return getHttpEndpoint() == kDefaultProductionEndpoint;
-  }
-
-  Future<void> setHttpEndpoint(String endpoint) async {
-    await _preferences.setString(endPointKey, endpoint);
-    Bus.instance.fire(EndpointUpdatedEvent());
   }
 
   String? getToken() {

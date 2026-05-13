@@ -284,10 +284,10 @@ class UserService {
           // Token is already invalid (401 response)
           (e is DioException && e.response?.statusCode == 401) ||
               // Custom endpoints where server might be non-existent or unavailable
-              !_config.isEnteProduction();
+              !endpointConfig.isProduction;
 
       if (silentlyIgnoreError) {
-        if (!_config.isEnteProduction()) {
+        if (!endpointConfig.isProduction) {
           _logger.info(
             "Custom endpoint detected, proceeding with local logout despite server error",
           );
