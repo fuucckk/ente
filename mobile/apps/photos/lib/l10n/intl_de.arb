@@ -697,6 +697,15 @@
   "inviteLimitReached": "Du hast 5 Einladungen hinzugefügt. Entferne eine, um eine weitere hinzuzufügen",
   "emailAddress": "E-Mail-Adresse",
   "sendInvites": "Einladungen versenden",
+  "sendCountInvites": "{count, plural, =0 {Einladungen versenden} one {Versende eine Einladung} other {Versende {count} Einladungen}}",
+  "@sendCountInvites": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "enterAnEmailAddress": "Gib eine E-Mail-Adresse ein",
   "enterAValidEmailAddress": "Gib eine gültige E-Mail-Adresse ein",
   "alreadyAdded": "Bereits hinzugefügt",
@@ -707,6 +716,15 @@
       "email": {
         "type": "String",
         "example": "someone@example.com"
+      }
+    }
+  },
+  "invitesSentCount": "{count, plural, one {Einladung gesendet} other {Einladungen gesendet}}",
+  "@invitesSentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
       }
     }
   },
@@ -1136,6 +1154,14 @@
   "share": "Teilen",
   "unhideToAlbum": "Im Album anzeigen",
   "restoreToAlbum": "Album wiederherstellen",
+  "moveItem": "{count, plural, one {Element verschieben} other {Elemente verschieben}}",
+  "@moveItem": {
+    "description": "Page title while moving one or more items to an album"
+  },
+  "addItem": "{count, plural, one {Element hinzufügen} other {Elemente hinzufügen}}",
+  "@addItem": {
+    "description": "Page title while adding one or more items to album"
+  },
   "createOrSelectAlbum": "Album erstellen oder auswählen",
   "selectAlbum": "Album auswählen",
   "searchByAlbumNameHint": "Name des Albums",
@@ -1160,6 +1186,16 @@
   "referFriendsAnd2xYourPlan": "Begeistere Freunde für uns und verdopple deinen Speicher",
   "shareAlbumHint": "Öffne ein Album und tippe auf den Teilen-Button oben rechts, um zu teilen.",
   "itemsShowTheNumberOfDaysRemainingBeforePermanentDeletion": "Elemente zeigen die Anzahl der Tage bis zum dauerhaften Löschen an",
+  "trashDaysLeft": "{count, plural, =0 {Demnächst} one {Ein Tag} other {{count} Tage}}",
+  "@trashDaysLeft": {
+    "description": "Text to indicate number of days remaining before permanent deletion",
+    "placeholders": {
+      "count": {
+        "example": "1|2|3",
+        "type": "int"
+      }
+    }
+  },
   "deleteAll": "Alle löschen",
   "renameAlbum": "Album umbenennen",
   "convertToAlbum": "Konvertiere zum Album",
@@ -1269,6 +1305,7 @@
   "authToViewYourMemories": "Bitte authentifizieren, um deine Erinnerungsstücke anzusehen",
   "unlock": "Jetzt freischalten",
   "freeUpSpace": "Speicherplatz freigeben",
+  "freeUpSpaceSaving": "{count, plural, one {Es kann vom Gerät gelöscht werden, um {formattedSize} freizugeben} other {Sie können vom Gerät gelöscht werden, um {formattedSize} freizugeben}}",
   "filesBackedUpInAlbum": "{count, plural, one {1 Datei} other {{formattedNumber} Dateien}} in diesem Album wurde(n) sicher gespeichert",
   "@filesBackedUpInAlbum": {
     "description": "Text to tell user how many files have been backed up in the album",
@@ -1296,6 +1333,18 @@
         "content": "{formattedNumber}",
         "example": "1,000",
         "type": "String"
+      }
+    }
+  },
+  "@freeUpSpaceSaving": {
+    "description": "Text to tell user how much space they can free up by deleting items from the device"
+  },
+  "freeUpAccessPostDelete": "Du kannst weiterhin über Ente {count, plural, one {darauf} other {auf sie}} zugreifen, solange du ein aktives Abo hast",
+  "@freeUpAccessPostDelete": {
+    "placeholders": {
+      "count": {
+        "example": "1",
+        "type": "int"
       }
     }
   },
@@ -1707,6 +1756,8 @@
     "description": "Subtitle to indicate that the user can find people quickly by name"
   },
   "findPeopleByName": "Finde Personen schnell nach Namen",
+  "addViewers": "{count, plural, =0 {Betrachter hinzufügen} one {Betrachter hinzufügen} other {Betrachter hinzufügen}}",
+  "addCollaborators": "{count, plural, =0 {Bearbeiter hinzufügen} one {Bearbeiter hinzufügen} other {Bearbeiter hinzufügen}}",
   "longPressAnEmailToVerifyEndToEndEncryption": "Lange auf eine E-Mail drücken, um die Ende-zu-Ende-Verschlüsselung zu überprüfen.",
   "developerSettingsWarning": "Bist du sicher, dass du Entwicklereinstellungen bearbeiten willst?",
   "developerSettings": "Entwicklereinstellungen",
@@ -1842,6 +1893,34 @@
   "@noFacesDetectedTapToAdd": {
     "description": "Shown in file details when no faces are detected, but manual tagging is available."
   },
+  "addedFilesToPerson": "{count, plural, one {Eine Datei zu {personName}} other {{count} Dateien zu {personName}}} hinzugefügt",
+  "@addedFilesToPerson": {
+    "description": "Toast shown after manually tagging one or more files to a person.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      },
+      "personName": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
+  "filesAlreadyLinkedToPerson": "{count, plural, one {Eine Datei ist bereits zu {personName} hinzugefügt} other {{count} Dateien sind bereits zu {personName} hinzugefügt}}",
+  "@filesAlreadyLinkedToPerson": {
+    "description": "Toast shown when selected files are already manually tagged to the selected person.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      },
+      "personName": {
+        "type": "String",
+        "example": "Alex"
+      }
+    }
+  },
   "addNewPerson": "Neue Person hinzufügen",
   "addNameOrMerge": "Name hinzufügen oder zusammenführen",
   "mergeWithExisting": "Mit vorhandenem zusammenführen",
@@ -1891,6 +1970,46 @@
   "enableMachineLearningBanner": "Aktiviere maschinelles Lernen für die magische Suche und Gesichtserkennung",
   "searchDiscoverEmptySection": "Bilder werden hier angezeigt, sobald Verarbeitung und Synchronisation abgeschlossen sind",
   "searchPersonsEmptySection": "Personen werden hier angezeigt, sobald Verarbeitung und Synchronisierung abgeschlossen sind",
+  "viewersSuccessfullyAdded": "{count, plural, =0 {0 Betrachter hinzugefügt} one {Einen Betrachter hinzugefügt} other {{count} Betrachter hinzugefügt}}",
+  "@viewersSuccessfullyAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    },
+    "description": "Number of viewers that were successfully added to an album."
+  },
+  "collaboratorsSuccessfullyAdded": "{count, plural, =0 {0 Mitarbeiter hinzugefügt} one {Einen Mitarbeiter hinzugefügt} other {{count} Mitarbeiter hinzugefügt}}",
+  "@collaboratorsSuccessfullyAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    },
+    "description": "Number of collaborators that were successfully added to an album."
+  },
+  "adminsSuccessfullyAdded": "{count, plural, =0 {Es wurden keine Admins hinzugefügt} one {Ein Admin erfolgreich hinzugefügt} other {{count} Admins erfolgreich hinzugefügt}}",
+  "@adminsSuccessfullyAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    },
+    "description": "Number of admins that were successfully added to an album."
+  },
+  "addAdmins": "{count, plural, =0 {Admin hinzufügen} one {Admin hinzufügen} other {Admins hinzufügen}}",
+  "@addAdmins": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    },
+    "description": "Button text to add admins"
+  },
   "adminsCanManagePhotosAndParticipants": "Admins können Fotos und Teilnehmer verwalten.",
   "suggestDeletion": "Löschung vorschlagen",
   "suggestDeletionDescription": "Ausgewählte Fotos werden aus diesem Album entfernt. Fotobesitzer werden zusätzlich einen Vorschlag erhalten, die Fotos zu überprüfen und zu löschen.",
@@ -1960,6 +2079,15 @@
   },
   "currentlyRunning": "läuft gerade",
   "ignored": "ignoriert",
+  "photosCount": "{count, plural, =0 {0 Fotos} one {Ein Foto} other {{count} Fotos}}",
+  "@photosCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "file": "Datei",
   "searchSectionsLengthMismatch": "Abschnittslänge stimmt nicht überein: {snapshotLength} != {searchLength}",
   "@searchSectionsLengthMismatch": {
@@ -2245,11 +2373,21 @@
   "moveSelectedPhotosToOneDate": "Ausgewählte Fotos auf ein Datum verschieben",
   "shiftDatesAndTime": "Datum und Uhrzeit verschieben",
   "photosKeepRelativeTimeDifference": "Fotos behalten relativen Zeitunterschied",
+  "photocountPhotos": "{count, plural, =0 {Keine Fotos} one {Ein Foto} other {{count} Fotos}}",
+  "@photocountPhotos": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "appIcon": "App-Symbol",
   "notThisPerson": "Nicht diese Person?",
   "selectedItemsWillBeRemovedFromThisPerson": "Ausgewählte Elemente werden von dieser Person entfernt, aber nicht aus deiner Bibliothek gelöscht.",
   "throughTheYears": "{dateFormat} über die Jahre",
   "thisWeekThroughTheYears": "Diese Woche über die Jahre",
+  "thisWeekXYearsAgo": "{count, plural, one {Diese Woche, vor einem Jahr} other {Diese Woche, vor {count} Jahren}}",
   "youAndThem": "Du und {name}",
   "admiringThem": "{name} wertschätzen",
   "embracingThem": "{name} umarmen",
@@ -2373,6 +2511,15 @@
   "font": "Schriftart",
   "background": "Hintergrund",
   "align": "Ausrichten",
+  "addedToAlbums": "{count, plural, one{Erfolgreich zu einem Album hinzugefügt} other{Erfolgreich zu {count} Alben hinzugefügt}}",
+  "@addedToAlbums": {
+    "description": "Message shown when items are added to albums",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "videosProcessed": "Videos verarbeitet",
   "totalVideos": "Videos insgesamt",
   "skippedVideos": "Übersprungene Videos",
@@ -2403,6 +2550,14 @@
   "findSimilarImages": "Ähnliche Bilder finden",
   "noSimilarImagesFound": "Keine ähnlichen Bilder gefunden",
   "yourPhotosLookUnique": "Deine Fotos sehen einzigartig aus",
+  "similarGroupsFound": "{count, plural, one{Eine Gruppe gefunden} other{{count} Gruppen gefunden}}",
+  "@similarGroupsFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "reviewAndRemoveSimilarImages": "Überprüfe und lösche ähnliche Bilder",
   "deletePhotosWithSize": "Lösche {count} Fotos ({size})",
   "@deletePhotosWithSize": {
@@ -2822,6 +2977,15 @@
       }
     }
   },
+  "likesCount": "{count, plural, one{Ein Like} other{{count} Likes}}",
+  "@likesCount": {
+    "description": "Number of likes with pluralization",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noLikesYet": "Noch keine Likes",
   "@noLikesYet": {
     "description": "Empty state when no likes exist"
@@ -2834,6 +2998,15 @@
   "@failedToUpdateLike": {
     "description": "Toast when like update fails"
   },
+  "failedToLikeAlbums": "{count, plural, one{Ein Album konnte nicht gelikt werden} other{{count} Alben konnten nicht gelikt werden}}",
+  "@failedToLikeAlbums": {
+    "description": "Error when liking albums fails",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "couldNotLoadAlbums": "Alben konnten nicht geladen werden",
   "@couldNotLoadAlbums": {
     "description": "Error when albums fail to load"
@@ -2841,6 +3014,15 @@
   "couldNotLoadSelectedPhoto": "Ausgewähltes Foto konnte nicht geladen werden",
   "@couldNotLoadSelectedPhoto": {
     "description": "Toast when the selected contact photo cannot be loaded"
+  },
+  "albumsCount": "{count, plural, one{Ein Album} other{{count} Alben}}",
+  "@albumsCount": {
+    "description": "Number of albums with pluralization",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "likeAll": "Alle liken",
   "@likeAll": {
@@ -2876,6 +3058,15 @@
     "placeholders": {
       "name": {
         "type": "String"
+      }
+    }
+  },
+  "commentsCount": "{count, plural, =0{Keine Kommentare} one{Ein Kommentar} other{{count} Kommentare}}",
+  "@commentsCount": {
+    "description": "Number of comments with pluralization",
+    "placeholders": {
+      "count": {
+        "type": "int"
       }
     }
   },

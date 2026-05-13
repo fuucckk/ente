@@ -419,7 +419,9 @@ Future<void> _init(
 
     if (isPickerStartup) {
       if (Configuration.instance.hasConfiguredAccount()) {
-        _logger.info("FavoritesService init $tlog");
+        _logger.info("Minor inits for logged in state $tlog");
+        PersonService.init(entityService, MLDataDB.instance, preferences);
+        _logger.info("PersonService init for picker startup done $tlog");
         await FavoritesService.instance.initFav();
         _logger.info("FavoritesService init done $tlog");
       }
