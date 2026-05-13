@@ -1110,7 +1110,7 @@ class VideoPreviewService {
     late final ({String encryptedData, String decryptionHeader}) fetchResult;
     if (collectionsService.isSharedPublicLink(file.collectionID!)) {
       fetchResult = await _fileDataGateway.fetchPublicFileData(
-        baseUrl: config.getHttpEndpoint(),
+        baseUrl: endpointConfig.endpoint,
         fileID: file.uploadedFileID!,
         type: "vid_preview",
         headers: collectionsService.publicCollectionHeaders(file.collectionID!),
@@ -1157,7 +1157,7 @@ class VideoPreviewService {
           file.fileType == FileType.video ? "vid_preview" : "img_preview";
       if (collectionsService.isSharedPublicLink(file.collectionID!)) {
         url = await _fileDataGateway.getPublicPreview(
-          baseUrl: config.getHttpEndpoint(),
+          baseUrl: endpointConfig.endpoint,
           fileID: file.uploadedFileID!,
           type: previewType,
           headers: collectionsService.publicCollectionHeaders(

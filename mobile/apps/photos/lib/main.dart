@@ -244,6 +244,18 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
     await _scheduleHeartBeat(prefs, true);
     await _ensureRustInitialized(via: 'workmanager:$taskId');
 
+    _logger.info("[BG TASK] NetworkClient init $tlog");
+    await NetworkClient.instance.init(packageInfo, prefs);
+    _logger.info("[BG TASK] NetworkClient init done $tlog");
+
+    ServiceLocator.instance.init(
+      prefs,
+      NetworkClient.instance.enteDio,
+      NetworkClient.instance.getDio(),
+      packageInfo,
+    );
+    NotificationService.instance.init(prefs);
+
     _logger.info("(for debugging) Configuration init $tlog");
     await Configuration.instance.init();
     _logger.info("(for debugging) Configuration done $tlog");
@@ -258,16 +270,6 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
     await Computer.shared().turnOn(workersCount: 4);
     CryptoUtil.init();
 
-    // Init Network Utils
-    await NetworkClient.instance.init(packageInfo);
-
-    // Global Services
-    ServiceLocator.instance.init(
-      prefs,
-      NetworkClient.instance.enteDio,
-      NetworkClient.instance.getDio(),
-      packageInfo,
-    );
     // Initialize early so thermal/battery listeners can warm up while the
     // rest of background services are being initialized.
     final controller = computeController;
@@ -286,7 +288,6 @@ Future<void> _runMinimally(String taskId, TimeLogger tlog) async {
 
     // Misc Services
     await UserService.instance.init();
-    NotificationService.instance.init(prefs);
     SocialNotificationCoordinator.instance.init(prefs);
     await NotificationService.instance.initializeForBackground();
 
@@ -387,15 +388,8 @@ Future<void> _init(
     Computer.shared().turnOn(workersCount: 4).ignore();
     CryptoUtil.init();
 
-    _logger.info("Lockscreen init $tlog");
-    unawaited(LockScreenSettings.instance.init(preferences));
-
-    _logger.info("Configuration init $tlog");
-    await Configuration.instance.init();
-    _logger.info("Configuration done $tlog");
-
     _logger.info("NetworkClient init $tlog");
-    await NetworkClient.instance.init(packageInfo);
+    await NetworkClient.instance.init(packageInfo, preferences);
     _logger.info("NetworkClient init done $tlog");
 
     ServiceLocator.instance.init(
@@ -404,6 +398,14 @@ Future<void> _init(
       NetworkClient.instance.getDio(),
       packageInfo,
     );
+
+    _logger.info("Lockscreen init $tlog");
+    unawaited(LockScreenSettings.instance.init(preferences));
+
+    _logger.info("Configuration init $tlog");
+    await Configuration.instance.init();
+    _logger.info("Configuration done $tlog");
+
     await MemoryShareService.instance.init();
 
     _logger.info("UserService init $tlog");

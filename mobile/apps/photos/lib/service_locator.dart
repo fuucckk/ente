@@ -2,7 +2,7 @@ import "package:dio/dio.dart";
 import "package:ente_cast/ente_cast.dart";
 import "package:ente_feature_flag/ente_feature_flag.dart";
 import "package:package_info_plus/package_info_plus.dart";
-import "package:photos/core/configuration.dart";
+import "package:photos/core/network/endpoint_config.dart";
 import "package:photos/gateways/billing/billing_gateway.dart";
 import "package:photos/gateways/collections/collection_files_gateway.dart";
 import "package:photos/gateways/collections/collection_share_gateway.dart";
@@ -48,6 +48,7 @@ class ServiceLocator {
   late final Dio enteDio;
   late final Dio nonEnteDio;
   late final PackageInfo packageInfo;
+  late final EndpointConfig endpointConfig;
 
   // instance
   ServiceLocator._privateConstructor();
@@ -64,8 +65,11 @@ class ServiceLocator {
     this.enteDio = enteDio;
     this.nonEnteDio = nonEnteDio;
     this.packageInfo = packageInfo;
+    endpointConfig = EndpointConfig(prefs);
   }
 }
+
+EndpointConfig get endpointConfig => ServiceLocator.instance.endpointConfig;
 
 FlagService? _flagService;
 
@@ -366,7 +370,7 @@ UsersGateway get usersGateway {
   _usersGateway ??= UsersGateway(
     ServiceLocator.instance.enteDio,
     ServiceLocator.instance.nonEnteDio,
-    Configuration.instance,
+    endpointConfig,
   );
   return _usersGateway!;
 }
