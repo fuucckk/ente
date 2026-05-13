@@ -2,6 +2,7 @@ import "dart:async";
 import "dart:convert";
 import "dart:io";
 
+import "package:crypto/crypto.dart";
 import "package:dio/dio.dart";
 import "package:flutter/foundation.dart";
 import "package:logging/logging.dart";
@@ -27,31 +28,57 @@ class RemoteAssetsService {
   static final RemoteAssetsService instance =
       RemoteAssetsService._privateConstructor();
 
-  Future<File> getAsset(String remotePath, {bool refetch = false}) async {
+  Future<File> getAsset(
+    String remotePath, {
+    bool refetch = false,
+    String? expectedSha256,
+  }) async {
     return _lockFor(remotePath).synchronized(() async {
       final path = await _getLocalPath(remotePath);
       final file = File(path);
       if (await file.exists() && !refetch) {
-        _logger.info("Returning cached file for $remotePath");
-        return file;
+        if (await _hasExpectedSha256(file, remotePath, expectedSha256)) {
+          _logger.info("Returning cached file for $remotePath");
+          return file;
+        }
+        _logger.warning(
+          "Cached remote asset hash mismatch for $remotePath, redownloading",
+        );
+        await _deleteAssetArtifacts(path);
       }
 
       final tempFile = File(_tempPath(path));
       await _downloadFile(remotePath, tempFile.path);
+      await _validateDownloadedFileSha256(
+        tempFile,
+        remotePath,
+        expectedSha256,
+      );
       await _replaceFile(tempFile, file);
       await _deleteResumeMetadata(tempFile.path);
       return file;
     });
   }
 
-  Future<String> getAssetPath(String remotePath, {bool refetch = false}) async {
+  Future<String> getAssetPath(
+    String remotePath, {
+    bool refetch = false,
+    String? expectedSha256,
+  }) async {
     await cleanupOldModelsIfNeeded();
-    final file = await getAsset(remotePath, refetch: refetch);
+    final file = await getAsset(
+      remotePath,
+      refetch: refetch,
+      expectedSha256: expectedSha256,
+    );
     return file.path;
   }
 
   ///Returns asset if the remote asset is new compared to the local copy of it
-  Future<File?> getAssetIfUpdated(String remotePath) async {
+  Future<File?> getAssetIfUpdated(
+    String remotePath, {
+    String? expectedSha256,
+  }) async {
     return _lockFor(remotePath).synchronized(() async {
       try {
         final path = await _getLocalPath(remotePath);
@@ -60,15 +87,33 @@ class RemoteAssetsService {
 
         if (!await file.exists()) {
           await _downloadFile(remotePath, tempFile.path);
+          await _validateDownloadedFileSha256(
+            tempFile,
+            remotePath,
+            expectedSha256,
+          );
           await _replaceFile(tempFile, file);
           await _deleteResumeMetadata(tempFile.path);
           return file;
         }
 
+        final cachedHashMatches =
+            await _hasExpectedSha256(file, remotePath, expectedSha256);
+        if (!cachedHashMatches) {
+          _logger.warning(
+            "Cached remote asset hash mismatch for $remotePath, refreshing",
+          );
+        }
+
         final existingFileSize = await file.length();
         await _downloadFile(remotePath, tempFile.path);
+        await _validateDownloadedFileSha256(
+          tempFile,
+          remotePath,
+          expectedSha256,
+        );
         final newFileSize = await tempFile.length();
-        if (existingFileSize != newFileSize) {
+        if (!cachedHashMatches || existingFileSize != newFileSize) {
           await _replaceFile(tempFile, file);
           await _deleteResumeMetadata(tempFile.path);
           return file;
@@ -76,6 +121,8 @@ class RemoteAssetsService {
 
         await _clearResumeArtifacts(tempFile.path);
         return null;
+      } on _RemoteAssetHashMismatchException {
+        rethrow;
       } catch (e) {
         _logger.warning("Error getting asset if updated", e);
         return null;
@@ -83,9 +130,22 @@ class RemoteAssetsService {
     });
   }
 
-  Future<bool> hasAsset(String remotePath) async {
-    final path = await _getLocalPath(remotePath);
-    return File(path).exists();
+  Future<bool> hasAsset(String remotePath, {String? expectedSha256}) async {
+    return _lockFor(remotePath).synchronized(() async {
+      final path = await _getLocalPath(remotePath);
+      final file = File(path);
+      if (!await file.exists()) {
+        return false;
+      }
+      if (await _hasExpectedSha256(file, remotePath, expectedSha256)) {
+        return true;
+      }
+      _logger.warning(
+        "Cached remote asset hash mismatch for $remotePath, removing cache",
+      );
+      await _deleteAssetArtifacts(path);
+      return false;
+    });
   }
 
   Future<String> _getLocalPath(String remotePath) async {
@@ -466,6 +526,63 @@ class RemoteAssetsService {
     }
   }
 
+  Future<void> _validateDownloadedFileSha256(
+    File file,
+    String url,
+    String? expectedSha256,
+  ) async {
+    if (expectedSha256 == null) {
+      return;
+    }
+
+    try {
+      await _validateExpectedSha256(file, url, expectedSha256);
+    } on _RemoteAssetHashMismatchException {
+      await _clearResumeArtifacts(file.path);
+      rethrow;
+    }
+  }
+
+  Future<void> _validateExpectedSha256(
+    File file,
+    String url,
+    String expectedSha256,
+  ) async {
+    final actualSha256 = await _sha256Hex(file);
+    if (!_hashesMatch(actualSha256, expectedSha256)) {
+      throw _RemoteAssetHashMismatchException(
+        url: url,
+        expectedSha256: expectedSha256,
+        actualSha256: actualSha256,
+      );
+    }
+  }
+
+  Future<bool> _hasExpectedSha256(
+    File file,
+    String url,
+    String? expectedSha256,
+  ) async {
+    if (expectedSha256 == null) {
+      return true;
+    }
+    try {
+      await _validateExpectedSha256(file, url, expectedSha256);
+      return true;
+    } catch (e, s) {
+      _logger.warning("Remote asset hash validation failed for $url", e, s);
+      return false;
+    }
+  }
+
+  Future<String> _sha256Hex(File file) async {
+    final digest = await sha256.bind(file.openRead()).first;
+    return digest.toString();
+  }
+
+  bool _hashesMatch(String actualSha256, String expectedSha256) =>
+      actualSha256.toLowerCase() == expectedSha256.toLowerCase();
+
   void _validateResumedResponseHeaders(
     Headers headers, {
     required int expectedStart,
@@ -638,4 +755,22 @@ class _ResumeValidationException implements Exception {
 
   @override
   String toString() => "ResumeValidationException: $message";
+}
+
+class _RemoteAssetHashMismatchException implements Exception {
+  const _RemoteAssetHashMismatchException({
+    required this.url,
+    required this.expectedSha256,
+    required this.actualSha256,
+  });
+
+  final String url;
+  final String expectedSha256;
+  final String actualSha256;
+
+  @override
+  String toString() {
+    return "RemoteAssetHashMismatchException: Expected SHA-256 "
+        "$expectedSha256 for $url, found $actualSha256";
+  }
 }

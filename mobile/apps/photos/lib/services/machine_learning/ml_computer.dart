@@ -141,6 +141,7 @@ class MLComputer extends SuperIsolate {
           final tokenizerRemotePath = ClipTextEncoder.instance.vocabRemotePath;
           _clipTextVocabPath = await RemoteAssetsService.instance.getAssetPath(
             tokenizerRemotePath,
+            expectedSha256: ClipTextEncoder.instance.vocabSha256,
           );
         }
 
