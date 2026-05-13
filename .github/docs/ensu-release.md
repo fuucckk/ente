@@ -4,7 +4,11 @@
 
 ## Normal development
 
-Nightly builds of `main` are automatically created every weekday morning (IST), and can also be created by running the workflow manually. These builds are attached to the `ensu-v0.1.16-beta` prerelease; each nightly keeps updating the same prerelease.
+Nightly builds of `main` are automatically created every weekday morning (IST), and can also be created by running the `ensu-release` workflow manually. These builds are attached to the draft `ensu-v0.1.16-beta` GitHub release; each nightly keeps updating the same draft.
+
+> [!NOTE]
+>
+> All builds (nightly and RC) are also uploaded to Play Store internal testing (Android) and TestFlight (iOS).
 
 ## Cut a release branch
 
@@ -12,10 +16,12 @@ Nightly builds of `main` are automatically created every weekday morning (IST), 
 git switch main
 git pull
 git switch -c release/ensu-v0.1.16
+node .github/scripts/ensu-version.mjs set 0.1.16
+git commit -am "Ensu v0.1.16"
 git push -u origin HEAD
 ```
 
-Pushing the release branch creates a new build, updating the `ensu-v0.1.16-beta` prerelease.
+Pushing the release branch creates a draft `ensu-v0.1.16-rc` GitHub release (with a matching tag) and removes the `ensu-v0.1.16-beta` draft.
 
 Scheduled nightly builds are skipped while a release branch exists.
 
@@ -32,9 +38,9 @@ git push -u origin HEAD
 
 Open and merge a PR from `ensu-v0.1.17-beta` into `main`.
 
-## Candidate builds during QA
+## Update the RC if needed
 
-Cherry pick fixes to the release branch and push to trigger a new build.
+Cherry pick fixes to the release branch and push to replace the current RC.
 
 ```bash
 git switch release/ensu-v0.1.16
@@ -42,18 +48,20 @@ git cherry-pick <fix-sha>
 git push
 ```
 
-The push updates the `ensu-v0.1.16-beta` prerelease.
+## Finalize release
 
-## Draft release
-
-Run the workflow on the release branch, setting the `release` flag:
+Run the workflow on the release branch with the `finalize` flag:
 
 ```bash
-gh workflow run ensu-release.yml --ref release/ensu-v0.1.16 -f release=true
+gh workflow run ensu-release.yml --ref release/ensu-v0.1.16 -f finalize=true
 ```
 
-The workflow creates the release commit and tag, creates draft release `ensu-v0.1.16`, removes `ensu-v0.1.16-beta`, and deletes the release branch.
+This does not create another build. It tags the RC commit as `ensu-v0.1.16`, moves the GitHub draft from `ensu-v0.1.16-rc` to `ensu-v0.1.16`, removes the RC tag, and deletes the release branch.
 
-> [!NOTE]
->
-> The draft release flow is safe to retry, so if the run fails due to a transient error, re-run the failed jobs in GitHub Actions.
+## Retries
+
+The workflow is safe to retry for transient failures.
+
+Nightly and RC runs update fixed drafts (`ensu-v0.1.16-beta` and `ensu-v0.1.16-rc`). Re-running failed jobs, or triggering the workflow again, updates the same draft.
+
+Finalize does not build. It can be re-run on the release branch until it succeeds; branch deletion is the last step.
