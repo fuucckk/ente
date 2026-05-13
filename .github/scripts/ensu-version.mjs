@@ -23,17 +23,14 @@ function write(file, text) {
     fs.writeFileSync(file, text);
 }
 
-function parseVersion(version) {
+function trimVersion(version) {
     const match = /^(\d+\.\d+\.\d+)(-beta)?$/.exec(version);
     if (!match) throw new Error(`Invalid Ensu version: ${version}`);
-    return {
-        source: version,
-        marketing: match[1],
-    };
+    return match[1];
 }
 
 function sourceVersion() {
-    return parseVersion(JSON.parse(read(files.packageJson)).version);
+    return JSON.parse(read(files.packageJson)).version;
 }
 
 function value(file, regex) {
@@ -57,33 +54,34 @@ function expect(label, actual, wanted) {
 
 function check() {
     const version = sourceVersion();
+    const releaseVersion = trimVersion(version);
 
-    expect("tauri.conf.json", JSON.parse(read(files.tauri)).package?.version, version.source);
-    expect("Cargo.toml", value(files.cargoToml, /\[package\][\s\S]*?^version = "([^"]+)"/m), version.source);
-    expect("Cargo.lock", value(files.cargoLock, /\[\[package\]\]\nname = "ensu-tauri"\nversion = "([^"]+)"/), version.source);
-    expect("Android versionName", value(files.android, /versionName = "([^"]+)"/), version.marketing);
-    expect("Info.plist", value(files.plist, /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/), version.marketing);
+    expect("tauri.conf.json", JSON.parse(read(files.tauri)).package?.version, version);
+    expect("Cargo.toml", value(files.cargoToml, /\[package\][\s\S]*?^version = "([^"]+)"/m), version);
+    expect("Cargo.lock", value(files.cargoLock, /\[\[package\]\]\nname = "ensu-tauri"\nversion = "([^"]+)"/), version);
+    expect("Android versionName", value(files.android, /versionName = "([^"]+)"/), releaseVersion);
+    expect("Info.plist", value(files.plist, /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/), releaseVersion);
 
     const xcodeMarketingVersions = [...read(files.xcode).matchAll(/MARKETING_VERSION = ([^;]+);/g)];
     if (!xcodeMarketingVersions.length) throw new Error("Xcode MARKETING_VERSION: no entries found");
     for (const match of xcodeMarketingVersions) {
-        expect("Xcode MARKETING_VERSION", match[1], version.marketing);
+        expect("Xcode MARKETING_VERSION", match[1], releaseVersion);
     }
 }
 
-function setVersion(source) {
-    const version = parseVersion(source);
+function setVersion(version) {
+    const releaseVersion = trimVersion(version);
 
     const packageJson = JSON.parse(read(files.packageJson));
-    packageJson.version = version.source;
+    packageJson.version = version;
     write(files.packageJson, `${JSON.stringify(packageJson, null, 2)}\n`);
 
-    replace(files.tauri, /("package"\s*:\s*\{[\s\S]*?"version"\s*:\s*")[^"]+(")/, (_m, a, b) => `${a}${version.source}${b}`);
-    replace(files.cargoToml, /(\[package\][\s\S]*?^version = ")[^"]+(")/m, (_m, a, b) => `${a}${version.source}${b}`);
-    replace(files.cargoLock, /(\[\[package\]\]\nname = "ensu-tauri"\nversion = ")[^"]+(")/, (_m, a, b) => `${a}${version.source}${b}`);
-    replace(files.android, /versionName = "[^"]+"/, `versionName = "${version.marketing}"`);
-    replace(files.xcode, /MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version.marketing};`);
-    replace(files.plist, /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/, (_m, a, b) => `${a}${version.marketing}${b}`);
+    replace(files.tauri, /("package"\s*:\s*\{[\s\S]*?"version"\s*:\s*")[^"]+(")/, (_m, a, b) => `${a}${version}${b}`);
+    replace(files.cargoToml, /(\[package\][\s\S]*?^version = ")[^"]+(")/m, (_m, a, b) => `${a}${version}${b}`);
+    replace(files.cargoLock, /(\[\[package\]\]\nname = "ensu-tauri"\nversion = ")[^"]+(")/, (_m, a, b) => `${a}${version}${b}`);
+    replace(files.android, /versionName = "[^"]+"/, `versionName = "${releaseVersion}"`);
+    replace(files.xcode, /MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${releaseVersion};`);
+    replace(files.plist, /(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]+(<\/string>)/, (_m, a, b) => `${a}${releaseVersion}${b}`);
 }
 
 function usage() {
@@ -98,7 +96,7 @@ const [command = "get", ...args] = process.argv.slice(2);
 try {
     if (command === "get") {
         check();
-        console.log(sourceVersion().marketing);
+        console.log(sourceVersion());
     } else if (command === "set") {
         setVersion(args[0]);
         check();

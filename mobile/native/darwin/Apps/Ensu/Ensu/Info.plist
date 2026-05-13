@@ -24,7 +24,7 @@
     <string>0.1.16</string>
 
     <key>CFBundleVersion</key>
-    <string>31</string>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
 
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
