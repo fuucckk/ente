@@ -63,6 +63,12 @@ class NetworkClient {
     });
   }
 
+  void refreshEndpoint() {
+    final endpoint = Configuration.instance.getHttpEndpoint();
+    _enteDio.options.baseUrl = endpoint;
+    _setupInterceptors(endpoint);
+  }
+
   void _setupInterceptors(String endpoint) {
     _enteDio.interceptors.clear();
     _enteDio.interceptors.add(EnteRequestInterceptor(endpoint));

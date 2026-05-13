@@ -81,6 +81,7 @@ class Configuration {
   late String _documentsDirectory;
   String? _key;
   late SharedPreferences _preferences;
+  bool _preferencesInitialized = false;
   String? _secretKey;
   late FlutterSecureStorage _secureStorage;
   late String _tempDocumentsDirPath;
@@ -90,9 +91,16 @@ class Configuration {
   late String _sharedDocumentsMediaDirectory;
   String? _volatilePassword;
 
+  void initPreferences(SharedPreferences preferences) {
+    _preferences = preferences;
+    _preferencesInitialized = true;
+  }
+
   Future<void> init() async {
     try {
-      _preferences = await SharedPreferences.getInstance();
+      if (!_preferencesInitialized) {
+        initPreferences(await SharedPreferences.getInstance());
+      }
       _secureStorage = const FlutterSecureStorage(
         iOptions: IOSOptions(
           accessibility: KeychainAccessibility.first_unlock_this_device,
