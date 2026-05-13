@@ -98,7 +98,6 @@ jobs:
     release-desktop:
         needs: release-metadata
         if: needs.release-metadata.outputs.should_build == 'true'
-        environment: "auth-win-build"
         strategy:
             fail-fast: false
             matrix:

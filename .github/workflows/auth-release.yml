@@ -103,7 +103,7 @@ jobs:
               uses: timheuer/base64-to-file@v1
               with:
                   fileName: "keystore/ente_auth_key.jks"
-                  encodedString: ${{ secrets.SIGNING_KEY }}
+                  encodedString: ${{ secrets.SIGNING_KEY_AUTH }}
 
             - name: Create artifacts directory
               run: mkdir artifacts
@@ -114,9 +114,9 @@ jobs:
                   mv build/app/outputs/flutter-apk/app-independent-release.apk artifacts/ente-${{ github.ref_name }}.apk
               env:
                   SIGNING_KEY_PATH: "/home/runner/work/_temp/keystore/ente_auth_key.jks"
-                  SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-                  SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-                  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+                  SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS_AUTH }}
+                  SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD_AUTH }}
+                  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD_AUTH }}
 
             - name: Build PlayStore AAB
               # disable this step if release tag contains nightly or beta
@@ -125,9 +125,9 @@ jobs:
                   flutter build appbundle --release --flavor playstore --dart-define=app.flavor=playstore --dart-define=cronetHttpNoPlay=true
               env:
                   SIGNING_KEY_PATH: "/home/runner/work/_temp/keystore/ente_auth_key.jks"
-                  SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-                  SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-                  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+                  SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS_AUTH }}
+                  SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD_AUTH }}
+                  SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD_AUTH }}
 
             - name: Install dependencies for desktop build
               run: |
@@ -186,7 +186,6 @@ jobs:
 
     build-windows:
         runs-on: windows-latest
-        environment: "auth-win-build"
 
         defaults:
             run:
