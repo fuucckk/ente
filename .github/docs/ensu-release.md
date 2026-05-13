@@ -47,8 +47,8 @@ This does not create another build. It tags the last RC commit as `ensu-v0.1.16`
 
 ## Retries
 
-Both workflows are safe to retry for transient failures.
+`ensu-build.yml` is safe to retry. Both nightly and RC builds update fixed draft releases (`ensu-v0.1.16-beta` and `ensu-v0.1.16-rc`), and reruns update the same draft.
 
-For `ensu-build.yml`, both nightly or RC builds update fixed drafts (`ensu-v0.1.16-beta` and `ensu-v0.1.16-rc`). Re-running failed jobs, or triggering `ensu-build.yml` again, updates the same draft.
+> If a build has already reached Play Store or TestFlight, trigger a new workflow run instead of re-running failed jobs so that it gets a new build number.
 
-For `ensu-release.yml`, retries resume the same release state. `action=start` keeps using the existing release branch and next-beta PR. `action=finalize` does not build, and deletes the release branch only after the final draft is ready.
+`ensu-release.yml` changes release state. If it fails, inspect the failed step before re-running. After it has pushed a branch, created a tag, or moved a draft release, either finish the remaining step manually or undo the partial state first. Cleanup is intentionally late: `action=start` pushes the release branch before deleting the beta draft, and `action=finalize` deletes the release branch last.

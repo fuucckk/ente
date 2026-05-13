@@ -27,80 +27,61 @@ concurrency:
 
 jobs:
     release:
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-latest
         env:
             GH_TOKEN: ${{ github.token }}
             VERSION: ${{ inputs.version }}
 
         steps:
             - name: Checkout main
+              if: inputs.action == 'start'
               uses: actions/checkout@v6
               with:
                   ref: main
-                  fetch-depth: 0
+
+            - name: Checkout release branch
+              if: inputs.action == 'finalize'
+              uses: actions/checkout@v6
+              with:
+                  ref: release/ensu-v${{ inputs.version }}
 
             - name: Configure Git
+              if: inputs.action == 'start'
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-            - name: Validate version
-              run: |
-                  set -euo pipefail
-
-                  if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                      echo "::error::Invalid version ${VERSION}"
-                      exit 1
-                  fi
 
             - name: Start release
               if: inputs.action == 'start'
               run: |
                   set -euo pipefail
 
+                  release_branch="release/ensu-v${VERSION}"
+                  beta_tag="ensu-v${VERSION}-beta"
                   IFS=. read -r major minor patch <<< "${VERSION}"
                   next_version="${major}.${minor}.$((patch + 1))-beta"
-                  release_branch="release/ensu-v${VERSION}"
                   next_branch="ensu-v${next_version}"
-                  beta_tag="ensu-v${VERSION}-beta"
 
-                  git fetch origin main
-                  if git ls-remote --exit-code --heads origin "${release_branch}" >/dev/null; then
-                      git fetch origin "${release_branch}"
-                      git switch -C "${release_branch}" "origin/${release_branch}"
-                  else
-                      git switch -c "${release_branch}" origin/main
-                      version="$(node .github/scripts/ensu-version.mjs get)"
-                      if [ "${version}" != "${VERSION}-beta" ]; then
-                          echo "::error::main is ${version}, expected ${VERSION}-beta"
-                          exit 1
-                      fi
+                  main_version="$(node .github/scripts/ensu-version.mjs get)"
+                  if [ "${main_version}" != "${VERSION}-beta" ]; then
+                      echo "::error::main is ${main_version}, expected ${VERSION}-beta"
+                      exit 1
                   fi
 
+                  git switch -c "${release_branch}"
                   node .github/scripts/ensu-version.mjs set "${VERSION}"
-                  if ! git diff --quiet; then
-                      git commit -am "Ensu v${VERSION}"
-                  fi
-                  gh release delete "${beta_tag}" --yes || true
-                  git push origin ":refs/tags/${beta_tag}" 2>/dev/null || true
+                  git commit -am "Ensu v${VERSION}"
                   git push -u origin "${release_branch}"
 
-                  if git ls-remote --exit-code --heads origin "${next_branch}" >/dev/null; then
-                      git fetch origin "${next_branch}"
-                      git switch -C "${next_branch}" "origin/${next_branch}"
-                  else
-                      git switch -c "${next_branch}" origin/main
-                  fi
+                  gh release delete "${beta_tag}" --yes || true
+                  git push origin ":refs/tags/${beta_tag}" || true
+
+                  git switch -c "${next_branch}" main
                   node .github/scripts/ensu-version.mjs set "${next_version}"
-                  if ! git diff --quiet; then
-                      git commit -am "Start Ensu ${next_version}"
-                  fi
+                  git commit -am "Start Ensu ${next_version}"
                   git push -u origin "${next_branch}"
 
-                  pr_number="$(gh pr list --head "${next_branch}" --base main --state open --json number --jq '.[0].number // empty')"
-                  if [ -z "${pr_number}" ]; then
-                      gh pr create --base main --head "${next_branch}" --title "[meta] Start Ensu ${next_version}" --body ""
-                  fi
+                  gh pr create --base main --head "${next_branch}" --title "[ensu] Start Ensu ${next_version}" --body ""
 
             - name: Finalize release
               if: inputs.action == 'finalize'
@@ -111,50 +92,23 @@ jobs:
                   rc_tag="ensu-v${VERSION}-rc"
                   final_tag="ensu-v${VERSION}"
 
-                  git fetch origin "${release_branch}"
-                  git switch -C "${release_branch}" "origin/${release_branch}"
-                  version="$(node .github/scripts/ensu-version.mjs get)"
-                  if [ "${version}" != "${VERSION}" ]; then
-                      echo "::error::${release_branch} is ${version}, expected ${VERSION}"
+                  branch_version="$(node .github/scripts/ensu-version.mjs get)"
+                  if [ "${branch_version}" != "${VERSION}" ]; then
+                      echo "::error::${release_branch} is ${branch_version}, expected ${VERSION}"
                       exit 1
                   fi
 
                   release_sha="$(git rev-parse HEAD)"
-                  if git fetch origin "refs/tags/${rc_tag}:refs/tags/${rc_tag}" 2>/dev/null; then
-                      rc_sha="$(git rev-parse "${rc_tag}^{commit}")"
-                      if [ "${rc_sha}" != "${release_sha}" ]; then
-                          echo "::error::${rc_tag} does not point at ${release_branch}"
-                          exit 1
-                      fi
-                  elif git fetch origin "refs/tags/${final_tag}:refs/tags/${final_tag}" 2>/dev/null; then
-                      final_sha="$(git rev-parse "${final_tag}^{commit}")"
-                      if [ "${final_sha}" != "${release_sha}" ]; then
-                          echo "::error::${final_tag} does not point at ${release_branch}"
-                          exit 1
-                      fi
-                  else
-                      echo "::error::No RC or final tag found for ${VERSION}"
+                  rc_sha="$(git ls-remote origin "refs/tags/${rc_tag}" | cut -f1)"
+
+                  if [ "${rc_sha}" != "${release_sha}" ]; then
+                      echo "::error::${rc_tag} does not point at ${release_branch}"
                       exit 1
                   fi
 
-                  if git ls-remote --exit-code --tags origin "refs/tags/${final_tag}" >/dev/null; then
-                      git fetch origin "refs/tags/${final_tag}:refs/tags/${final_tag}"
-                      final_sha="$(git rev-parse "${final_tag}^{commit}")"
-                      if [ "${final_sha}" != "${release_sha}" ]; then
-                          echo "::error::${final_tag} already exists at ${final_sha}"
-                          exit 1
-                      fi
-                  else
-                      git tag "${final_tag}" "${release_sha}"
-                      git push origin "refs/tags/${final_tag}"
-                  fi
+                  git tag "${final_tag}" "${release_sha}"
+                  git push origin "refs/tags/${final_tag}"
+                  gh release edit "${rc_tag}" --tag "${final_tag}" --title "${final_tag}" --target "${release_sha}" --draft --verify-tag
 
-                  if gh release view "${rc_tag}" >/dev/null 2>&1; then
-                      gh release edit "${rc_tag}" --tag "${final_tag}" --title "${final_tag}" --target "${release_sha}" --draft
-                  elif ! gh release view "${final_tag}" >/dev/null 2>&1; then
-                      echo "::error::No RC or final GitHub release found for ${VERSION}"
-                      exit 1
-                  fi
-
-                  git push origin ":refs/tags/${rc_tag}" 2>/dev/null || true
+                  git push origin ":refs/tags/${rc_tag}" || true
                   git push origin ":refs/heads/${release_branch}"
