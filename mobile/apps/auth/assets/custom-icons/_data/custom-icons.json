@@ -538,6 +538,10 @@
       "slug": "coolify"
     },
     {
+      "title": "Cove Backup",
+      "slug": "cove"
+    },  
+    {
       "title": "Creately",
       "slug": "creately"
     },
@@ -928,6 +932,10 @@
       "title": "Habbo"
     },
     {
+      "title": "HaloPSA",
+      "slug": "halo"
+    },
+    {
       "title": "Healthchecks.io",
       "slug": "healthchecks"
     },
@@ -1080,6 +1088,10 @@
         "JOYCE"
       ]
     },
+    {
+      "title": "JumpCloud",
+      "slug": "jumpcloud"
+    },  
     {
       "title": "Kagi"
     },
@@ -1582,6 +1594,10 @@
       "title": "Parsec"
     },
     {
+      "title": "Patchmon",
+      "slug": "patchmon"
+    },
+    {
       "title": "Patient Access",
       "slug": "patient_access"
     },
@@ -1908,6 +1924,10 @@
     },
     {
       "title": "Shakepay"
+    },
+    {
+      "title": "Sherweb",
+      "slug": "sherweb"
     },
     {
       "title": "SimpleLogin"
