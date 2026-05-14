@@ -270,7 +270,6 @@ jobs:
                   cd ../../../../../rust
                   cargo codegen ensu-android
 
-
             - name: Setup signing keys
               run: |
                   KEYSTORE_PATH=$(pwd)/ensu-release.keystore
@@ -319,16 +318,18 @@ jobs:
                   changesNotSentForReview: false
 
             - name: Notify Discord
-              uses: sarisia/actions-status-discord@v1
-              with:
-                  webhook: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
-                  nodetail: true
-                  title: ${{ needs.build-metadata.outputs.release_title }}
-                  description: |
-                      ${{ env.RELEASE_BODY }}
+              continue-on-error: true
+              env:
+                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
+              run: |
+                  download_line="-# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [GitHub Release](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG})"
 
-                      -# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
-                  color: 0xFDCE13
+                  jq -n \
+                      --arg title "${{ needs.build-metadata.outputs.release_title }}" \
+                      --arg body "${RELEASE_BODY}" \
+                      --arg download_line "${download_line}" \
+                      '{embeds: [{title: $title, description: ($body + "\n" + $download_line), color: 16633363}]}' \
+                      | curl -fsSL -H 'Content-Type: application/json' -d @- "${DISCORD_WEBHOOK}"
 
     mark-built-tag:
         needs: [build-metadata, build-desktop, build-android]
