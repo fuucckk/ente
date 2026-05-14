@@ -181,7 +181,7 @@ class _IconButtonComponentState extends State<IconButtonComponent> {
       IconButtonComponentVariant.unfilled ||
       IconButtonComponentVariant.secondary =>
         0,
-      _ => Spacing.xxs,
+      _ => 2,
     };
   }
 

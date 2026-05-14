@@ -255,12 +255,12 @@ class _TextInputComponentState extends State<TextInputComponent> {
                   widget.prefix == null ? null : _slot(widget.prefix!, colors),
               suffixIcon: suffix == null ? null : _slot(suffix, colors),
               prefixIconConstraints: const BoxConstraints.tightFor(
-                width: Spacing.xxl + Spacing.lg,
-                height: Spacing.xxl + Spacing.lg,
+                width: 2 + Spacing.lg,
+                height: 2 + Spacing.lg,
               ),
               suffixIconConstraints: const BoxConstraints.tightFor(
-                width: Spacing.xxl + Spacing.lg,
-                height: Spacing.xxl + Spacing.lg,
+                width: 2 + Spacing.lg,
+                height: 2 + Spacing.lg,
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: Spacing.lg,
