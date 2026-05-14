@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:ente_auth/l10n/l10n.dart';
 import 'package:ente_auth/services/authenticator_service.dart';
@@ -7,6 +6,7 @@ import 'package:ente_auth/store/code_store.dart';
 import 'package:ente_auth/ui/components/buttons/button_widget.dart';
 import 'package:ente_auth/ui/components/dialog_widget.dart';
 import 'package:ente_auth/ui/components/models/button_type.dart';
+import 'package:ente_auth/ui/settings/data/import/import_file_cleanup.dart';
 import 'package:ente_auth/ui/settings/data/import/import_success.dart';
 import 'package:ente_auth/ui/settings/data/import/proton_import_parser.dart';
 import 'package:ente_auth/utils/dialog_util.dart';
@@ -81,7 +81,7 @@ Future<int?> _processProtonExportFile(
   String path,
   ProgressDialog dialog,
 ) async {
-  final jsonString = await File(path).readAsString();
+  final jsonString = await readPickedImportFileAsString(path);
 
   Map<String, dynamic> decodedJson;
   try {
