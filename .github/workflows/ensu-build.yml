@@ -317,20 +317,6 @@ jobs:
                   whatsNewDirectory: mobile/native/android/apps/ensu/whatsnew
                   changesNotSentForReview: false
 
-            - name: Notify Discord
-              continue-on-error: true
-              env:
-                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
-              run: |
-                  download_line="-# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [GitHub Release](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG})"
-
-                  jq -n \
-                      --arg title "${{ needs.build-metadata.outputs.release_title }}" \
-                      --arg body "${RELEASE_BODY}" \
-                      --arg download_line "${download_line}" \
-                      '{embeds: [{title: $title, description: ($body + "\n" + $download_line), color: 16633363}]}' \
-                      | curl -fsSL -H 'Content-Type: application/json' -d @- "${DISCORD_WEBHOOK}"
-
     build-ios:
         needs: build-metadata
         if: needs.build-metadata.outputs.should_build == 'true'
@@ -392,7 +378,7 @@ jobs:
                       -authenticationKeyID "${ASC_KEY_ID}" \
                       -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
 
-    mark-built-tag:
+    finish-build:
         needs: [build-metadata, build-desktop, build-android, build-ios]
         if: needs.build-metadata.outputs.should_build == 'true'
         runs-on: ubuntu-22.04
@@ -412,3 +398,19 @@ jobs:
 
                   git tag --force "${RELEASE_TAG}" "${COMMIT_SHA}"
                   git push --force origin "refs/tags/${RELEASE_TAG}"
+
+            - name: Notify Discord
+              continue-on-error: true
+              env:
+                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
+                  RELEASE_BODY: ${{ needs.build-metadata.outputs.release_body }}
+                  RELEASE_TAG: ${{ needs.build-metadata.outputs.release_tag }}
+              run: |
+                  download_line="-# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [TestFlight](https://appstoreconnect.apple.com/apps/6758197006/testflight/ios) | [GitHub Release](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG})"
+
+                  jq -n \
+                      --arg title "${{ needs.build-metadata.outputs.release_title }}" \
+                      --arg body "${RELEASE_BODY}" \
+                      --arg download_line "${download_line}" \
+                      '{embeds: [{title: $title, description: ($body + "\n" + $download_line), color: 16633363}]}' \
+                      | curl -fsSL -H 'Content-Type: application/json' -d @- "${DISCORD_WEBHOOK}"
