@@ -317,22 +317,69 @@ jobs:
                   whatsNewDirectory: mobile/native/android/apps/ensu/whatsnew
                   changesNotSentForReview: false
 
-            - name: Notify Discord
-              continue-on-error: true
+    build-ios:
+        needs: build-metadata
+        if: needs.build-metadata.outputs.should_build == 'true'
+        runs-on: macos-latest
+
+        defaults:
+            run:
+                working-directory: mobile/native/darwin/Apps/Ensu
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.build-metadata.outputs.commit_sha }}
+
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Generate iOS bindings
+              working-directory: rust
+              run: cargo codegen ensu-ios
+
+            - name: Import Apple Distribution certificate
+              uses: Apple-Actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
+              with:
+                  p12-file-base64: ${{ secrets.APPLE_DISTRIBUTION_CERT_BASE64 }}
+                  p12-password: ${{ secrets.APPLE_DISTRIBUTION_CERT_PASSWORD }}
+
+            - name: Archive and upload Ensu to TestFlight
               env:
-                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
+                  ASC_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+                  ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+                  BUILD_NUMBER: ${{ needs.build-metadata.outputs.build_number }}
               run: |
-                  download_line="-# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [GitHub Release](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG})"
+                  key_path="${RUNNER_TEMP}/AuthKey_${ASC_KEY_ID}.p8"
+                  printf '%s' "${ASC_API_KEY_BASE64}" | base64 --decode > "${key_path}"
 
-                  jq -n \
-                      --arg title "${{ needs.build-metadata.outputs.release_title }}" \
-                      --arg body "${RELEASE_BODY}" \
-                      --arg download_line "${download_line}" \
-                      '{embeds: [{title: $title, description: ($body + "\n" + $download_line), color: 16633363}]}' \
-                      | curl -fsSL -H 'Content-Type: application/json' -d @- "${DISCORD_WEBHOOK}"
+                  xcodebuild archive \
+                      -project Ensu.xcodeproj \
+                      -scheme Ensu \
+                      -configuration Release \
+                      -destination 'generic/platform=iOS' \
+                      -archivePath build/Ensu.xcarchive \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "${key_path}" \
+                      -authenticationKeyID "${ASC_KEY_ID}" \
+                      -authenticationKeyIssuerID "${ASC_ISSUER_ID}" \
+                      CODE_SIGN_STYLE=Automatic \
+                      CODE_SIGN_IDENTITY="Apple Distribution" \
+                      CURRENT_PROJECT_VERSION="${BUILD_NUMBER}"
 
-    mark-built-tag:
-        needs: [build-metadata, build-desktop, build-android]
+                  xcodebuild -exportArchive \
+                      -archivePath build/Ensu.xcarchive \
+                      -exportPath build/Export \
+                      -exportOptionsPlist scripts/ExportOptions-AppStore-CI.plist \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "${key_path}" \
+                      -authenticationKeyID "${ASC_KEY_ID}" \
+                      -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
+
+    finish-build:
+        needs: [build-metadata, build-desktop, build-android, build-ios]
         if: needs.build-metadata.outputs.should_build == 'true'
         runs-on: ubuntu-22.04
 
@@ -351,3 +398,19 @@ jobs:
 
                   git tag --force "${RELEASE_TAG}" "${COMMIT_SHA}"
                   git push --force origin "refs/tags/${RELEASE_TAG}"
+
+            - name: Notify Discord
+              continue-on-error: true
+              env:
+                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
+                  RELEASE_BODY: ${{ needs.build-metadata.outputs.release_body }}
+                  RELEASE_TAG: ${{ needs.build-metadata.outputs.release_tag }}
+              run: |
+                  download_line="-# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [TestFlight](https://appstoreconnect.apple.com/apps/6758197006/testflight/ios) | [GitHub Release](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG})"
+
+                  jq -n \
+                      --arg title "${{ needs.build-metadata.outputs.release_title }}" \
+                      --arg body "${RELEASE_BODY}" \
+                      --arg download_line "${download_line}" \
+                      '{embeds: [{title: $title, description: ($body + "\n" + $download_line), color: 16633363}]}' \
+                      | curl -fsSL -H 'Content-Type: application/json' -d @- "${DISCORD_WEBHOOK}"
