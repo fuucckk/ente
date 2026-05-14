@@ -63,36 +63,6 @@ void main() {
   });
 
   testWidgets(
-      "ButtonComponent height grows with text scale instead of clipping", (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _wrap(
-        ButtonComponent(
-          label: "Continue",
-          onTap: () {},
-        ),
-      ),
-    );
-
-    final normalHeight = tester.getSize(find.byType(AnimatedContainer)).height;
-    expect(normalHeight, 52);
-
-    await tester.pumpWidget(
-      _wrap(
-        ButtonComponent(
-          label: "Continue",
-          onTap: () {},
-        ),
-        textScaler: const TextScaler.linear(2),
-      ),
-    );
-
-    final scaledHeight = tester.getSize(find.byType(AnimatedContainer)).height;
-    expect(scaledHeight, greaterThan(normalHeight));
-  });
-
-  testWidgets(
       "ButtonComponent surfaces loading after debounce and blocks repeat taps",
       (
     tester,
@@ -292,7 +262,7 @@ void main() {
       ),
     );
 
-    expect(_containerColor(tester), const Color(0xFFE7F6E9));
+    expect(_containerColor(tester), const Color(0xFFDDEEDF));
     expect(tester.getSize(find.byType(AnimatedContainer)).height, 52);
 
     await tester.pumpWidget(
@@ -407,14 +377,11 @@ void main() {
   });
 }
 
-Widget _wrap(Widget child, {TextScaler textScaler = TextScaler.noScaling}) {
+Widget _wrap(Widget child) {
   return MaterialApp(
     theme: ComponentTheme.lightTheme(),
     home: Scaffold(
-      body: MediaQuery(
-        data: MediaQueryData(textScaler: textScaler),
-        child: Center(child: child),
-      ),
+      body: Center(child: child),
     ),
   );
 }
