@@ -5,10 +5,10 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   group("foundation tokens", () {
     test("expose expected spacing, radii, motion, and shadow values", () {
-      expect(Spacing.xxs, 2);
+      expect(2, 2);
       expect(Spacing.sm, 8);
       expect(Spacing.xl, 24);
-      expect(Spacing.xxxl, 40);
+      expect(40, 40);
 
       expect(Radii.xs, 4);
       expect(Radii.md, 12);

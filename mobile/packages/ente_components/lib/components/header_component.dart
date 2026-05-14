@@ -58,7 +58,7 @@ class HeaderComponent extends StatelessWidget {
                   style: TextStyles.h1Bold.copyWith(color: colors.textBase),
                 ),
                 if (subtitle != null) ...[
-                  const SizedBox(height: Spacing.xxs),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle!,
                     maxLines: 1,
