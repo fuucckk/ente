@@ -29,10 +29,10 @@ jobs:
         outputs:
             should_build: ${{ steps.prepare.outputs.should_build }}
             commit_sha: ${{ steps.prepare.outputs.commit_sha }}
-            release_tag: ${{ steps.prepare.outputs.release_tag }}
-            release_body: ${{ steps.prepare.outputs.release_body }}
             build_number: ${{ steps.prepare.outputs.build_number }}
-            short_sha: ${{ steps.prepare.outputs.short_sha }}
+            release_tag: ${{ steps.prepare.outputs.release_tag }}
+            release_title: ${{ steps.prepare.outputs.release_title }}
+            release_body: ${{ steps.prepare.outputs.release_body }}
 
         steps:
             - name: Checkout code
@@ -65,27 +65,29 @@ jobs:
                           echo "::error::Branch ${GITHUB_REF_NAME} does not match Ensu version ${release_version}"
                           exit 1
                       fi
-                      RELEASE_TAG="ensu-v${release_version}-rc"
+                      release_tag="ensu-v${release_version}-rc"
+                      release_title="Ensu release candidate · ${release_version} (build ${build_number})"
                   else
                       if [[ "${version}" != "${release_version}-beta" ]]; then
                           echo "::error::${GITHUB_REF_NAME} is ${version}, expected ${release_version}-beta"
                           exit 1
                       fi
-                      RELEASE_TAG="ensu-v${release_version}-beta"
+                      release_tag="ensu-v${release_version}-beta"
+                      release_title="Ensu nightly · ${version} (build ${build_number})"
                   fi
 
                   commit_sha="$(git rev-parse HEAD)"
 
                   echo "should_build=true" >> "${GITHUB_OUTPUT}"
                   echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
-                  echo "short_sha=${commit_sha::7}" >> "${GITHUB_OUTPUT}"
-                  echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
+                  echo "build_number=${build_number}" >> "${GITHUB_OUTPUT}"
+                  echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
+                  echo "release_title=${release_title}" >> "${GITHUB_OUTPUT}"
                   {
                       echo "release_body<<EOF"
                       find rust/apps/ensu/changes -maxdepth 1 -type f -name '*.md' ! -name README.md | sort | xargs awk 1
                       echo "EOF"
                   } >> "${GITHUB_OUTPUT}"
-                  echo "build_number=${build_number}" >> "${GITHUB_OUTPUT}"
 
     build-desktop:
         needs: build-metadata
@@ -232,10 +234,9 @@ jobs:
         runs-on: ubuntu-22.04
         env:
             COMMIT_SHA: ${{ needs.build-metadata.outputs.commit_sha }}
+            BUILD_NUMBER: ${{ needs.build-metadata.outputs.build_number }}
             RELEASE_TAG: ${{ needs.build-metadata.outputs.release_tag }}
             RELEASE_BODY: ${{ needs.build-metadata.outputs.release_body }}
-            SHORT_SHA: ${{ needs.build-metadata.outputs.short_sha }}
-            BUILD_NUMBER: ${{ needs.build-metadata.outputs.build_number }}
 
         defaults:
             run:
@@ -322,11 +323,11 @@ jobs:
               with:
                   webhook: ${{ secrets.DISCORD_INTERNAL_RELEASE_WEBHOOK }}
                   nodetail: true
-                  title: "🤖 Internal release available for Ensu"
+                  title: ${{ needs.build-metadata.outputs.release_title }}
                   description: |
-                      ${{ env.RELEASE_TAG }} ([${{ env.SHORT_SHA }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ env.COMMIT_SHA }})) · [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
-                      **Changes:**
                       ${{ env.RELEASE_BODY }}
+
+                      -# Download: [Play Store](https://play.google.com/store/apps/details?id=io.ente.ensu) | [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
                   color: 0xFDCE13
 
     mark-built-tag:
@@ -342,8 +343,8 @@ jobs:
 
             - name: Point release tag at the successfully built commit
               env:
-                  RELEASE_TAG: ${{ needs.build-metadata.outputs.release_tag }}
                   COMMIT_SHA: ${{ needs.build-metadata.outputs.commit_sha }}
+                  RELEASE_TAG: ${{ needs.build-metadata.outputs.release_tag }}
               run: |
                   set -euo pipefail
 
