@@ -350,6 +350,7 @@ jobs:
                   ASC_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
                   ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
                   ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+                  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
                   BUILD_NUMBER: ${{ needs.build-metadata.outputs.build_number }}
               run: |
                   key_path="${RUNNER_TEMP}/AuthKey_${ASC_KEY_ID}.p8"
@@ -365,8 +366,9 @@ jobs:
                       -authenticationKeyPath "${key_path}" \
                       -authenticationKeyID "${ASC_KEY_ID}" \
                       -authenticationKeyIssuerID "${ASC_ISSUER_ID}" \
-                      CODE_SIGN_STYLE=Automatic \
+                      CODE_SIGN_STYLE=Manual \
                       CODE_SIGN_IDENTITY="Apple Distribution" \
+                      DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
                       CURRENT_PROJECT_VERSION="${BUILD_NUMBER}"
 
                   xcodebuild -exportArchive \
