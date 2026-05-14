@@ -18,10 +18,11 @@ gh workflow run ensu-release.yml \
   -f version=0.1.16
 ```
 
-This removes the `ensu-v0.1.16-beta` draft and tag, then:
+This:
 
-1. Creates `release/ensu-v0.1.16` with the version set to `0.1.16`
-2. Pushes the branch, which triggers `ensu-build.yml` and creates the draft `ensu-v0.1.16-rc` release
+1. Creates a release branch `release/ensu-v0.1.16` with the version set to `0.1.16`
+2. Pushes the branch, which triggers `ensu-build.yml` and creates the draft `ensu-v0.1.16-rc` GitHub release
+3. Removes the `ensu-v0.1.16-beta` draft and tag
 
 The workflow also opens a PR to move `main` to `0.1.17-beta`. Merge that PR after it is created. Scheduled nightlies are skipped while the release branch exists.
 
