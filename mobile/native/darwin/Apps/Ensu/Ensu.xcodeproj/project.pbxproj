@@ -556,7 +556,7 @@
 				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -fmodule-map-file=$(SRCROOT)/Ensu/Generated/coreFFI.modulemap -Xcc -fmodule-map-file=$(SRCROOT)/Ensu/Generated/dbFFI.modulemap -Xcc -fmodule-map-file=$(SRCROOT)/Ensu/Generated/syncFFI.modulemap -Xcc -fmodule-map-file=$(SRCROOT)/Ensu/Generated/inferenceFFI.modulemap -Xcc -fmodule-map-file=$(SRCROOT)/Ensu/Generated/transcriptionFFI.modulemap";
 				PRODUCT_BUNDLE_IDENTIFIER = io.ente.ensu;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
+				PROVISIONING_PROFILE_SPECIFIER = "$(APP_STORE_PROFILE_SPECIFIER)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/Ensu/Generated";
 				SWIFT_VERSION = 5.0;
