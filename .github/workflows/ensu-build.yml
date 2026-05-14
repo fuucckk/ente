@@ -66,14 +66,12 @@ jobs:
                           exit 1
                       fi
                       RELEASE_TAG="ensu-v${release_version}-rc"
-                      RELEASE_BODY="Release candidate builds"
                   else
                       if [[ "${version}" != "${release_version}-beta" ]]; then
                           echo "::error::${GITHUB_REF_NAME} is ${version}, expected ${release_version}-beta"
                           exit 1
                       fi
                       RELEASE_TAG="ensu-v${release_version}-beta"
-                      RELEASE_BODY="Nightly builds"
                   fi
 
                   commit_sha="$(git rev-parse HEAD)"
@@ -82,7 +80,11 @@ jobs:
                   echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
                   echo "short_sha=${commit_sha::7}" >> "${GITHUB_OUTPUT}"
                   echo "release_tag=${RELEASE_TAG}" >> "${GITHUB_OUTPUT}"
-                  echo "release_body=${RELEASE_BODY}" >> "${GITHUB_OUTPUT}"
+                  {
+                      echo "release_body<<EOF"
+                      find rust/apps/ensu/changes -maxdepth 1 -type f -name '*.md' ! -name README.md | sort | xargs awk 1
+                      echo "EOF"
+                  } >> "${GITHUB_OUTPUT}"
                   echo "build_number=${build_number}" >> "${GITHUB_OUTPUT}"
 
     build-desktop:
@@ -282,6 +284,11 @@ jobs:
             - name: Build signed Android artifacts
               run: ./gradlew -PversionCode="${BUILD_NUMBER}" :app-ui:assembleRelease :app-ui:bundleRelease
 
+            - name: Prepare whatsnew
+              run: |
+                  mkdir -p whatsnew
+                  echo "${RELEASE_BODY}" | head -c 500 > whatsnew/whatsnew-en-US
+
             - name: Prepare Android APK for GitHub release
               run: |
                   mkdir -p artifacts
@@ -307,6 +314,7 @@ jobs:
                   packageName: io.ente.ensu
                   releaseFiles: mobile/native/android/apps/ensu/app-ui/build/outputs/bundle/release/app-ui-release.aab
                   track: internal
+                  whatsNewDirectory: mobile/native/android/apps/ensu/whatsnew
                   changesNotSentForReview: false
 
             - name: Notify Discord
@@ -317,6 +325,8 @@ jobs:
                   title: "🤖 Internal release available for Ensu"
                   description: |
                       ${{ env.RELEASE_TAG }} ([${{ env.SHORT_SHA }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ env.COMMIT_SHA }})) · [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }})
+                      **Changes:**
+                      ${{ env.RELEASE_BODY }}
                   color: 0xFDCE13
 
     mark-built-tag:

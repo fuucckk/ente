@@ -78,6 +78,7 @@ jobs:
 
                   git switch -c "${next_branch}" main
                   node .github/scripts/ensu-version.mjs set "${next_version}"
+                  find rust/apps/ensu/changes -maxdepth 1 -type f -name '*.md' ! -name README.md -delete
                   git commit -am "Start Ensu ${next_version}"
                   git push -u origin "${next_branch}"
 
