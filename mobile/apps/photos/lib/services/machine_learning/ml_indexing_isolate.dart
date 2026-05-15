@@ -98,7 +98,6 @@ class MLIndexingIsolate extends SuperIsolate {
           "Deleted corrupt Rust ONNX model cache at ${isolateResult.modelPath}; "
           "stopping ML indexing for fileID ${instruction.fileKey}",
         );
-        _cachedRustRuntimeArgs = null;
         shouldPauseIndexingAndClustering = true;
         throw isolateResult;
       }
