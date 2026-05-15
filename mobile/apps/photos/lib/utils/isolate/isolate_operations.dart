@@ -1,3 +1,4 @@
+import 'dart:io' show File;
 import 'dart:typed_data' show Float32List, Uint8List;
 
 import "package:flutter_rust_bridge/flutter_rust_bridge.dart" show Uint64List;
@@ -25,6 +26,15 @@ import "package:photos/utils/ml_util.dart";
 final Map<String, dynamic> _isolateCache = {};
 const _rustLibLoadedCacheKey = "rustLibLoaded";
 const _rustMlRuntimeConfigCacheKey = "rustMlRuntimeConfig";
+
+class RustCorruptModelCacheDeletedException implements Exception {
+  const RustCorruptModelCacheDeletedException(this.modelPath);
+
+  final String modelPath;
+
+  @override
+  String toString() => "RustCorruptModelCacheDeletedException: $modelPath";
+}
 
 enum IsolateOperation {
   /// [MLIndexingIsolate]
@@ -123,9 +133,18 @@ Future<dynamic> isolateFunction(
       if (useRustMl) {
         await _ensureRustLoaded();
       }
-      final MLResult result = useRustMl
-          ? await analyzeImageRust(args)
-          : await analyzeImageStatic(args);
+      final MLResult result;
+      try {
+        result = useRustMl
+            ? await analyzeImageRust(args)
+            : await analyzeImageStatic(args);
+      } on rust_ml.RustMlError_CorruptModel catch (e) {
+        final file = File(e.field0);
+        if (await file.exists()) {
+          await file.delete();
+        }
+        return RustCorruptModelCacheDeletedException(e.field0);
+      }
       return result.toJsonString();
 
     /// MLIndexingIsolate

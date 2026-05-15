@@ -61,6 +61,7 @@ pub enum RustMlError {
     Decode(String),
     Preprocess(String),
     Ort(String),
+    CorruptModel(String),
     Postprocess(String),
     Runtime(String),
 }
@@ -245,6 +246,7 @@ impl From<SharedMlError> for RustMlError {
             SharedMlError::Decode(message) => RustMlError::Decode(message),
             SharedMlError::Preprocess(message) => RustMlError::Preprocess(message),
             SharedMlError::Ort(message) => RustMlError::Ort(message),
+            SharedMlError::CorruptModel(message) => RustMlError::CorruptModel(message),
             SharedMlError::Postprocess(message) => RustMlError::Postprocess(message),
             SharedMlError::Runtime(message) => RustMlError::Runtime(message),
         }
