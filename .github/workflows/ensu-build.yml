@@ -320,7 +320,7 @@ jobs:
     build-ios:
         needs: build-metadata
         if: needs.build-metadata.outputs.should_build == 'true'
-        runs-on: macos-latest
+        runs-on: macos-26
 
         defaults:
             run:
