@@ -261,19 +261,28 @@ Future<dynamic> isolateFunction(
         );
       }
 
-      final result = await rust_ml.runClipTextRust(
-        req: rust_ml.RunClipTextRequest(
-          text: text,
-          modelPath: clipTextModelPath,
-          vocabPath: clipTextVocabPath,
-          providerPolicy: rust_ml.RustExecutionProviderPolicy(
-            preferCoreml: args["preferCoreml"] as bool? ?? true,
-            preferNnapi: args["preferNnapi"] as bool? ?? true,
-            preferXnnpack: args["preferXnnpack"] as bool? ?? false,
-            allowCpuFallback: args["allowCpuFallback"] as bool? ?? true,
+      final rust_ml.RunClipTextResult result;
+      try {
+        result = await rust_ml.runClipTextRust(
+          req: rust_ml.RunClipTextRequest(
+            text: text,
+            modelPath: clipTextModelPath,
+            vocabPath: clipTextVocabPath,
+            providerPolicy: rust_ml.RustExecutionProviderPolicy(
+              preferCoreml: args["preferCoreml"] as bool? ?? true,
+              preferNnapi: args["preferNnapi"] as bool? ?? true,
+              preferXnnpack: args["preferXnnpack"] as bool? ?? false,
+              allowCpuFallback: args["allowCpuFallback"] as bool? ?? true,
+            ),
           ),
-        ),
-      );
+        );
+      } on rust_ml.RustMlError_CorruptModel catch (e) {
+        final file = File(e.field0);
+        if (await file.exists()) {
+          await file.delete();
+        }
+        return RustCorruptModelCacheDeletedException(e.field0);
+      }
       return List<double>.from(result.embedding, growable: false);
 
     /// MLComputer
