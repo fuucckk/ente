@@ -9,6 +9,8 @@ Nightly builds of `main` are automatically created every weekday morning (IST), 
 > [!NOTE]
 >
 > All builds (nightly and RC) are also uploaded to Play Store internal testing (Android) and TestFlight (iOS).
+>
+> See [apple-signing.md](./apple-signing.md) for certificate, API key, and provisioning profile setup and rotation.
 
 ## Start release
 
