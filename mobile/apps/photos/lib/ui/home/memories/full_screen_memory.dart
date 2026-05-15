@@ -404,6 +404,9 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
     durationNotifier.dispose();
     hasPointerOnScreenNotifier.removeListener(_hasPointerListener);
     _detailSheetEventSubscription.cancel();
+    _progressAnimationController = null;
+    _zoomAnimationController = null;
+    _kenBurnsStartToken = null;
     super.dispose();
   }
 
@@ -432,6 +435,7 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
   }
 
   void _toggleAnimation({required bool pause}) {
+    if (!mounted) return;
     _isAnimationPaused = pause;
     if (pause) {
       _progressAnimationController?.stop();
@@ -447,6 +451,7 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
   }
 
   void _resetAnimation() {
+    if (!mounted) return;
     _progressAnimationController
       ?..stop()
       ..reset();
@@ -455,7 +460,33 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
       ..reset();
   }
 
+  void _setProgressAnimationController(AnimationController controller) {
+    _progressAnimationController = controller;
+  }
+
+  void _clearProgressAnimationController(AnimationController controller) {
+    if (_progressAnimationController == controller) {
+      _progressAnimationController = null;
+    }
+  }
+
+  void _setZoomAnimationController(AnimationController controller) {
+    // Freeze the outgoing photo's Ken Burns during auto-advance crossfades.
+    if (_autoAdvanceTransition) {
+      _zoomAnimationController?.stop();
+    }
+    _zoomAnimationController = controller;
+  }
+
+  void _clearZoomAnimationController(AnimationController controller) {
+    if (_zoomAnimationController == controller) {
+      _zoomAnimationController = null;
+      _kenBurnsStartToken = null;
+    }
+  }
+
   void onFinalFileLoad(int duration) {
+    if (!mounted) return;
     hasFinalFileLoaded = true;
     isAtFirstOrLastFile = false;
     if (_progressAnimationController?.isAnimating == true) {
@@ -598,9 +629,10 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
                                 alpha: 0.4,
                               ),
                               duration: duration,
-                              animationController: (controller) {
-                                _progressAnimationController = controller;
-                              },
+                              animationController:
+                                  _setProgressAnimationController,
+                              onAnimationControllerDisposed:
+                                  _clearProgressAnimationController,
                               onComplete: () {
                                 _autoAdvanceTransition = true;
                                 _goToNext(inheritedData);
@@ -768,17 +800,9 @@ class _FullScreenMemoryState extends State<FullScreenMemory> {
                                 currentFile.uploadedFileID ??
                                     currentFile.localID,
                               ),
-                              scaleController: (controller) {
-                                // Freeze the outgoing photo's Ken Burns at
-                                // its current transform on auto-advance so
-                                // the crossfade is a dissolve between two
-                                // still images, not between a still and a
-                                // moving one.
-                                if (_autoAdvanceTransition) {
-                                  _zoomAnimationController?.stop();
-                                }
-                                _zoomAnimationController = controller;
-                              },
+                              scaleController: _setZoomAnimationController,
+                              onScaleControllerDisposed:
+                                  _clearZoomAnimationController,
                               zoomIn: safeIndex % 2 == 0,
                               isVideo: isVideo,
                               child: FileWidget(
@@ -1062,6 +1086,7 @@ class MemoriesZoomWidget extends StatefulWidget {
   final Widget child;
   final bool isVideo;
   final void Function(AnimationController)? scaleController;
+  final void Function(AnimationController)? onScaleControllerDisposed;
   final bool zoomIn;
 
   const MemoriesZoomWidget({
@@ -1070,6 +1095,7 @@ class MemoriesZoomWidget extends StatefulWidget {
     required this.isVideo,
     required this.zoomIn,
     this.scaleController,
+    this.onScaleControllerDisposed,
   });
 
   @override
@@ -1121,6 +1147,7 @@ class _MemoriesZoomWidgetState extends State<MemoriesZoomWidget>
 
   @override
   void dispose() {
+    widget.onScaleControllerDisposed?.call(_controller);
     _controller.dispose();
     super.dispose();
   }
