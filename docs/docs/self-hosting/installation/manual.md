@@ -185,10 +185,12 @@ Values you used for `database name` and `username` correspond to the values you 
 
 2. Configure the environment variables in your corresponding shell's
    configuration file (`.bashrc`, `.zshrc`)
+
     ```shell
     # Replace this with actual endpoint for Museum
     export NEXT_PUBLIC_ENTE_ENDPOINT=http://localhost:8080
     ```
+
 3. Build the needed applications (Photos, Albums, Accounts, Auth, Cast, Public
    Locker, Embed, Memories) as per your needs:
 
