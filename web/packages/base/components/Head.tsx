@@ -1,11 +1,6 @@
 import Head from "next/head";
 import React from "react";
-import { haveWindow } from "../env";
-import {
-    isCustomAPIOrigin,
-    isCustomShareAppOrigin,
-    shareAppOrigin,
-} from "../origins";
+import { isCustomAPIOrigin } from "../origins";
 
 interface CustomHeadProps {
     title: string;
@@ -133,14 +128,12 @@ export const CustomHeadShareStatic: React.FC = () => (
  * A convenience fan out to conditionally show one of {@link CustomHead} or
  * {@link CustomHeadShareStatic}.
  *
- * This component defaults to {@link CustomHeadShareStatic} during SSR unless a
- * custom endpoint is defined, and then does a client side update when it
- * detects that the origin it is being served on is not the share origin.
+ * Use static production preview tags only when using Ente's production API.
+ * Custom API builds should not inline production preview metadata into the
+ * static HTML.
  */
 export const CustomHeadShare: React.FC<CustomHeadProps> = ({ title }) =>
-    isCustomShareAppOrigin ||
-    (haveWindow() &&
-        new URL(window.location.href).origin != shareAppOrigin()) ? (
+    isCustomAPIOrigin ? (
         <CustomHead {...{ title }} />
     ) : (
         <CustomHeadShareStatic />

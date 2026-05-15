@@ -113,6 +113,15 @@ if (process.env.NEXT_PUBLIC_ENTE_PHOTOS_ENDPOINT) {
     );
 }
 
+if (process.env.NEXT_PUBLIC_ENTE_SHARE_ENDPOINT) {
+    console.log(
+        "The NEXT_PUBLIC_ENTE_SHARE_ENDPOINT environment variable is not used anymore and is ignored.",
+    );
+    console.log(
+        "It only affected link preview metadata; public link behavior is configured through Museum.",
+    );
+}
+
 /**
  * Configuration for the Next.js build
  *
