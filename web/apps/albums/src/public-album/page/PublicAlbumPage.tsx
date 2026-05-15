@@ -74,11 +74,7 @@ import {
     type PublicAlbumsCredentials,
 } from "ente-base/http";
 import log from "ente-base/log";
-import {
-    apiOrigin,
-    isCustomAPIOrigin,
-    photosAppOrigin,
-} from "ente-base/origins";
+import { apiOrigin, isCustomAPIOrigin } from "ente-base/origins";
 import type { Collection } from "ente-media/collection";
 import { type EnteFile } from "ente-media/file";
 import { fileFileName } from "ente-media/file-metadata";
@@ -243,7 +239,7 @@ export default function PublicAlbumPage() {
                     if (isCustomAPIOrigin) {
                         await router.push("/");
                     } else {
-                        window.location.href = photosAppOrigin();
+                        window.location.href = "https://photos.ente.com";
                     }
                 },
             },

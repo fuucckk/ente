@@ -86,8 +86,3 @@ export const customAPIHost = async () => {
  */
 export const uploaderOrigin = async () =>
     (await customAPIOrigin()) ?? "https://uploader.ente.com";
-
-/**
- * Return the origin that serves Ente's official photos app.
- */
-export const photosAppOrigin = (): string => "https://photos.ente.com";
