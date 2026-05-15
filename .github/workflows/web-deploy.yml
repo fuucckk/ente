@@ -71,8 +71,6 @@ jobs:
 
             - name: Build custom-albums
               run: yarn build:albums
-              env:
-                  NEXT_PUBLIC_ENTE_OFFICIAL_ALBUMS_APP: 1
 
             - name: Publish custom-albums
               uses: cloudflare/wrangler-action@v3
