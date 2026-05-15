@@ -418,7 +418,8 @@ func (c *UserController) alertStorageWarningDeletionScheduledLoginBlock(userID i
 	}).Warn("blocked login due to storage warning scheduled deletion")
 
 	if c.DiscordController != nil {
-		c.DiscordController.NotifyThrottled(
+		discordController := c.DiscordController
+		go discordController.NotifyThrottled(
 			fmt.Sprintf("🔒 Storage warning login block hit: user_id=%d app=%s", userID, app),
 			15*t.Minute,
 		)
