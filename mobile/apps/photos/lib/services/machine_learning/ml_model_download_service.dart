@@ -36,11 +36,9 @@ class MLModelDownloadService {
   Future<bool> canLoadClipTextModel() async {
     final hasModel = await RemoteAssetsService.instance.hasAsset(
       ClipTextEncoder.instance.modelRemotePath,
-      expectedSha256: ClipTextEncoder.instance.modelSha256,
     );
     final hasVocab = await RemoteAssetsService.instance.hasAsset(
       ClipTextEncoder.instance.vocabRemotePath,
-      expectedSha256: ClipTextEncoder.instance.vocabSha256,
     );
     if (hasModel && hasVocab) {
       return true;

@@ -37,14 +37,8 @@ class RemoteAssetsService {
       final path = await _getLocalPath(remotePath);
       final file = File(path);
       if (await file.exists() && !refetch) {
-        if (await _hasExpectedSha256(file, remotePath, expectedSha256)) {
-          _logger.info("Returning cached file for $remotePath");
-          return file;
-        }
-        _logger.warning(
-          "Cached remote asset hash mismatch for $remotePath, redownloading",
-        );
-        await _deleteAssetArtifacts(path);
+        _logger.info("Returning cached file for $remotePath");
+        return file;
       }
 
       final tempFile = File(_tempPath(path));
@@ -97,14 +91,6 @@ class RemoteAssetsService {
           return file;
         }
 
-        final cachedHashMatches =
-            await _hasExpectedSha256(file, remotePath, expectedSha256);
-        if (!cachedHashMatches) {
-          _logger.warning(
-            "Cached remote asset hash mismatch for $remotePath, refreshing",
-          );
-        }
-
         final existingFileSize = await file.length();
         await _downloadFile(remotePath, tempFile.path);
         await _validateDownloadedFileSha256(
@@ -113,7 +99,7 @@ class RemoteAssetsService {
           expectedSha256,
         );
         final newFileSize = await tempFile.length();
-        if (!cachedHashMatches || existingFileSize != newFileSize) {
+        if (existingFileSize != newFileSize) {
           await _replaceFile(tempFile, file);
           await _deleteResumeMetadata(tempFile.path);
           return file;
@@ -130,21 +116,10 @@ class RemoteAssetsService {
     });
   }
 
-  Future<bool> hasAsset(String remotePath, {String? expectedSha256}) async {
+  Future<bool> hasAsset(String remotePath) async {
     return _lockFor(remotePath).synchronized(() async {
       final path = await _getLocalPath(remotePath);
-      final file = File(path);
-      if (!await file.exists()) {
-        return false;
-      }
-      if (await _hasExpectedSha256(file, remotePath, expectedSha256)) {
-        return true;
-      }
-      _logger.warning(
-        "Cached remote asset hash mismatch for $remotePath, removing cache",
-      );
-      await _deleteAssetArtifacts(path);
-      return false;
+      return File(path).exists();
     });
   }
 
@@ -555,23 +530,6 @@ class RemoteAssetsService {
         expectedSha256: expectedSha256,
         actualSha256: actualSha256,
       );
-    }
-  }
-
-  Future<bool> _hasExpectedSha256(
-    File file,
-    String url,
-    String? expectedSha256,
-  ) async {
-    if (expectedSha256 == null) {
-      return true;
-    }
-    try {
-      await _validateExpectedSha256(file, url, expectedSha256);
-      return true;
-    } catch (e, s) {
-      _logger.warning("Remote asset hash validation failed for $url", e, s);
-      return false;
     }
   }
 

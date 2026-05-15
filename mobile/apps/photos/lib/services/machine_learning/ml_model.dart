@@ -48,10 +48,7 @@ abstract class MlModel {
   }
 
   Future<String?> downloadModelSafe() async {
-    if (await RemoteAssetsService.instance.hasAsset(
-      modelRemotePath,
-      expectedSha256: modelSha256,
-    )) {
+    if (await RemoteAssetsService.instance.hasAsset(modelRemotePath)) {
       return await RemoteAssetsService.instance.getAssetPath(
         modelRemotePath,
         expectedSha256: modelSha256,
