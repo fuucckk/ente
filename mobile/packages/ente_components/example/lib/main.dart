@@ -48,7 +48,8 @@ class _ComponentsCatalogAppState extends State<ComponentsCatalogApp> {
     final now = event.timeStamp;
     final lastPointerUpAt = _lastPointerUpAt;
     final lastPointerUpPosition = _lastPointerUpPosition;
-    final isDoubleTap = lastPointerUpAt != null &&
+    final isDoubleTap =
+        lastPointerUpAt != null &&
         lastPointerUpPosition != null &&
         now - lastPointerUpAt <= const Duration(milliseconds: 320) &&
         (event.position - lastPointerUpPosition).distance <= 48;
@@ -114,7 +115,7 @@ class _CatalogHomeState extends State<CatalogHome> {
             return IconButtonComponent(
               tooltip: 'Settings',
               variant: IconButtonComponentVariant.unfilled,
-              onPressed: () => Scaffold.of(context).openDrawer(),
+              onTap: () => Scaffold.of(context).openDrawer(),
               icon: const _CatalogHugeIcon(HugeIcons.strokeRoundedMenu01),
             );
           },
@@ -252,23 +253,13 @@ class _CatalogHomeState extends State<CatalogHome> {
       CatalogSection(
         title: 'Avatar',
         icon: HugeIcons.strokeRoundedUser,
-        components: const [
-          'Sizes',
-          'Seed palette',
-          'Add contact',
-        ],
+        components: const ['Sizes', 'Seed palette', 'Add contact'],
         previewBuilder: (_) => const _AvatarPreview(),
       ),
       CatalogSection(
         title: 'Selection controls',
         icon: HugeIcons.strokeRoundedSlidersHorizontal,
-        components: const [
-          'Checkbox',
-          'Radio',
-          'Switch',
-          'Slider',
-          'Stepper',
-        ],
+        components: const ['Checkbox', 'Radio', 'Switch', 'Slider', 'Stepper'],
         previewBuilder: (_) => const _SelectionPreview(),
       ),
     ];
@@ -312,15 +303,13 @@ class CatalogSettingsDrawer extends StatelessWidget {
                   icon: const _CatalogHugeIcon(
                     HugeIcons.strokeRoundedArrowLeft02,
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onTap: () => Navigator.of(context).pop(),
                 ),
                 const SizedBox(width: Spacing.md),
                 Expanded(
                   child: Text(
                     'Settings',
-                    style: TextStyles.h1Bold.copyWith(
-                      color: colors.textBase,
-                    ),
+                    style: TextStyles.h1Bold.copyWith(color: colors.textBase),
                   ),
                 ),
               ],
@@ -340,11 +329,7 @@ double _drawerWidth(BuildContext context) {
 }
 
 class _CatalogHugeIcon extends StatelessWidget {
-  const _CatalogHugeIcon(
-    this.icon, {
-    this.color,
-    this.size = 24,
-  });
+  const _CatalogHugeIcon(this.icon, {this.color, this.size = 24});
 
   final HugeIconData icon;
   final Color? color;
@@ -423,7 +408,7 @@ class _CatalogThemeCycleButton extends StatelessWidget {
       tooltip: 'Theme: $_currentLabel. Tap for $_nextLabel',
       variant: IconButtonComponentVariant.unfilled,
       icon: _CatalogHugeIcon(_icon),
-      onPressed: () => onChanged(_nextMode),
+      onTap: () => onChanged(_nextMode),
     );
   }
 }
@@ -499,7 +484,7 @@ class _CatalogDetailPageState extends State<CatalogDetailPage> {
         leading: IconButtonComponent(
           tooltip: 'Back',
           icon: const _CatalogHugeIcon(HugeIcons.strokeRoundedArrowLeft02),
-          onPressed: () => Navigator.of(context).pop(),
+          onTap: () => Navigator.of(context).pop(),
         ),
         actions: [
           _CatalogThemeCycleButton(
@@ -510,9 +495,7 @@ class _CatalogDetailPageState extends State<CatalogDetailPage> {
       ),
       body: ListView(
         padding: const EdgeInsets.all(Spacing.lg),
-        children: [
-          widget.section.previewBuilder(context),
-        ],
+        children: [widget.section.previewBuilder(context)],
       ),
       backgroundColor: colors.backgroundBase,
     );
@@ -520,10 +503,7 @@ class _CatalogDetailPageState extends State<CatalogDetailPage> {
 }
 
 class _CatalogPreviewGroup extends StatelessWidget {
-  const _CatalogPreviewGroup({
-    required this.title,
-    required this.child,
-  });
+  const _CatalogPreviewGroup({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -534,10 +514,7 @@ class _CatalogPreviewGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyles.large.copyWith(color: colors.textBase),
-        ),
+        Text(title, style: TextStyles.large.copyWith(color: colors.textBase)),
         const SizedBox(height: Spacing.md),
         child,
       ],
@@ -627,7 +604,7 @@ class _SettingsMainContent extends StatelessWidget {
           ),
           trailing: _SettingsTrailingIcon(color: colors.textLight),
         ),
-        const SizedBox(height: Spacing.xxl),
+        const SizedBox(height: Spacing.xl),
         Center(
           child: Text(
             'Version 1.0.0',
@@ -657,9 +634,9 @@ class _SettingsNavigationItem extends StatelessWidget {
       leading: _CatalogHugeIcon(icon),
       trailing: const _SettingsTrailingIcon(),
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => page),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => page));
       },
     );
   }
@@ -681,10 +658,7 @@ class _SettingsTrailingIcon extends StatelessWidget {
 }
 
 class _SettingsExampleShell extends StatelessWidget {
-  const _SettingsExampleShell({
-    required this.title,
-    required this.children,
-  });
+  const _SettingsExampleShell({required this.title, required this.children});
 
   final String title;
   final List<Widget> children;
@@ -698,7 +672,7 @@ class _SettingsExampleShell extends StatelessWidget {
         leading: IconButtonComponent(
           tooltip: 'Back',
           icon: const _CatalogHugeIcon(HugeIcons.strokeRoundedArrowLeft02),
-          onPressed: () => Navigator.of(context).pop(),
+          onTap: () => Navigator.of(context).pop(),
         ),
       ),
       body: ListView(
@@ -1147,15 +1121,9 @@ class _TypeSample extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          text,
-          style: style.copyWith(color: color),
-        ),
+        Text(text, style: style.copyWith(color: color)),
         const SizedBox(height: Spacing.xs),
-        Text(
-          detail,
-          style: TextStyles.mini.copyWith(color: colors.textLight),
-        ),
+        Text(detail, style: TextStyles.mini.copyWith(color: colors.textLight)),
       ],
     );
   }
@@ -1169,13 +1137,11 @@ class _ButtonMatrix extends StatelessWidget {
     return const _CatalogPreviewList(
       children: [
         ButtonStateCyclePreview(),
+        _ButtonExecutionPreview(),
         _ButtonStateGroup(title: 'Default'),
-        _ButtonStateGroup(
-          title: 'Disabled',
-          disabled: true,
-        ),
+        _ButtonStateGroup(title: 'Disabled', disabled: true),
         _CatalogPreviewGroup(
-          title: 'Icon button',
+          title: 'Icon button async actions',
           child: _IconButtonMatrix(),
         ),
       ],
@@ -1208,6 +1174,85 @@ class _ButtonStateCyclePreviewState extends State<ButtonStateCyclePreview> {
 
   Future<void> _runPreviewAction() {
     return Future<void>.delayed(const Duration(milliseconds: 900));
+  }
+}
+
+class _ButtonExecutionPreview extends StatelessWidget {
+  const _ButtonExecutionPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.componentColors;
+    return _CatalogPreviewGroup(
+      title: 'Async actions',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Success',
+            style: TextStyles.large.copyWith(color: colors.textBase),
+          ),
+          const SizedBox(height: Spacing.xs),
+          ButtonComponent(
+            label: 'Save changes',
+            variant: ButtonComponentVariant.primary,
+            size: ButtonComponentSize.large,
+            onTap: () =>
+                Future<void>.delayed(const Duration(milliseconds: 900)),
+          ),
+          const SizedBox(height: Spacing.md),
+          Text(
+            'Error',
+            style: TextStyles.large.copyWith(color: colors.textBase),
+          ),
+          const SizedBox(height: Spacing.xs),
+          ButtonComponent(
+            label: 'Sync backup',
+            variant: ButtonComponentVariant.critical,
+            size: ButtonComponentSize.large,
+            onTap: () => _runPreviewError(context),
+          ),
+          const SizedBox(height: Spacing.md),
+          Text(
+            'Fast confirmation',
+            style: TextStyles.large.copyWith(color: colors.textBase),
+          ),
+          const SizedBox(height: Spacing.xs),
+          ButtonComponent(
+            label: 'Copy link',
+            variant: ButtonComponentVariant.secondary,
+            size: ButtonComponentSize.large,
+            shouldShowSuccessConfirmation: true,
+            onTap: () =>
+                Future<void>.delayed(const Duration(milliseconds: 120)),
+          ),
+          const SizedBox(height: Spacing.md),
+          Text(
+            'Surface off',
+            style: TextStyles.large.copyWith(color: colors.textBase),
+          ),
+          const SizedBox(height: Spacing.xs),
+          ButtonComponent(
+            label: 'Refresh',
+            variant: ButtonComponentVariant.neutral,
+            size: ButtonComponentSize.large,
+            shouldSurfaceExecutionStates: false,
+            onTap: () =>
+                Future<void>.delayed(const Duration(milliseconds: 900)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runPreviewError(BuildContext context) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Something went wrong')));
+    }
+    throw StateError('Preview action failed');
   }
 }
 
@@ -1257,10 +1302,7 @@ class _ButtonPreviewSpec {
 }
 
 class _ButtonStateGroup extends StatelessWidget {
-  const _ButtonStateGroup({
-    required this.title,
-    this.disabled = false,
-  });
+  const _ButtonStateGroup({required this.title, this.disabled = false});
 
   final String title;
   final bool disabled;
@@ -1286,10 +1328,7 @@ class _ButtonStateGroup extends StatelessWidget {
 }
 
 class _ButtonPreviewRow extends StatelessWidget {
-  const _ButtonPreviewRow({
-    required this.spec,
-    required this.disabled,
-  });
+  const _ButtonPreviewRow({required this.spec, required this.disabled});
 
   final _ButtonPreviewSpec spec;
   final bool disabled;
@@ -1321,44 +1360,31 @@ class _IconButtonMatrix extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const columns = [
-      'Default',
-      'Hover',
-      'Pressed',
-      'Disabled',
-      'Loading',
-      'Success',
-    ];
+    const columns = ['Default', 'Disabled', 'Loading', 'Success', 'Error'];
     const rows = [
       _IconButtonPreviewRow(
         label: 'Primary',
         variant: IconButtonComponentVariant.primary,
-        states: columns,
       ),
       _IconButtonPreviewRow(
         label: 'Critical',
         variant: IconButtonComponentVariant.critical,
-        states: columns,
       ),
       _IconButtonPreviewRow(
         label: 'Unfilled',
         variant: IconButtonComponentVariant.unfilled,
-        states: ['Default', 'Disabled', 'Loading', 'Success'],
       ),
       _IconButtonPreviewRow(
         label: 'Secondary',
         variant: IconButtonComponentVariant.secondary,
-        states: ['Default', 'Disabled', 'Loading', 'Success'],
       ),
       _IconButtonPreviewRow(
         label: 'Green',
         variant: IconButtonComponentVariant.green,
-        states: columns,
       ),
       _IconButtonPreviewRow(
         label: 'Circular',
         variant: IconButtonComponentVariant.circular,
-        states: columns,
       ),
     ];
     final colors = context.componentColors;
@@ -1394,15 +1420,10 @@ class _IconButtonMatrix extends StatelessWidget {
 }
 
 class _IconButtonPreviewRow extends StatelessWidget {
-  const _IconButtonPreviewRow({
-    required this.label,
-    required this.variant,
-    required this.states,
-  });
+  const _IconButtonPreviewRow({required this.label, required this.variant});
 
   final String label;
   final IconButtonComponentVariant variant;
-  final List<String> states;
 
   @override
   Widget build(BuildContext context) {
@@ -1418,21 +1439,15 @@ class _IconButtonPreviewRow extends StatelessWidget {
         ),
         for (final state in const [
           'Default',
-          'Hover',
-          'Pressed',
           'Disabled',
           'Loading',
           'Success',
+          'Error',
         ])
           SizedBox(
             width: 76,
             child: Center(
-              child: states.contains(state)
-                  ? _IconButtonStatePreview(
-                      variant: variant,
-                      state: state,
-                    )
-                  : const SizedBox.square(dimension: 38),
+              child: _IconButtonStatePreview(variant: variant, state: state),
             ),
           ),
       ],
@@ -1441,10 +1456,7 @@ class _IconButtonPreviewRow extends StatelessWidget {
 }
 
 class _IconButtonStatePreview extends StatelessWidget {
-  const _IconButtonStatePreview({
-    required this.variant,
-    required this.state,
-  });
+  const _IconButtonStatePreview({required this.variant, required this.state});
 
   final IconButtonComponentVariant variant;
   final String state;
@@ -1454,19 +1466,28 @@ class _IconButtonStatePreview extends StatelessWidget {
     return IconButtonComponent(
       tooltip: state,
       variant: variant,
-      state: switch (state) {
-        'Hover' => IconButtonComponentState.hover,
-        'Pressed' => IconButtonComponentState.pressed,
-        _ => IconButtonComponentState.normal,
-      },
-      isLoading: state == 'Loading',
-      isSuccess: state == 'Success',
-      onPressed: state == 'Disabled' ? null : () {},
-      icon: const _CatalogHugeIcon(
-        HugeIcons.strokeRoundedAdd01,
-        size: 18,
-      ),
+      shouldShowSuccessConfirmation: state == 'Success',
+      onTap: state == 'Disabled'
+          ? null
+          : state == 'Loading'
+          ? () => Future<void>.delayed(const Duration(milliseconds: 900))
+          : state == 'Success'
+          ? () => Future<void>.delayed(const Duration(milliseconds: 120))
+          : state == 'Error'
+          ? () => _runPreviewError(context)
+          : () {},
+      icon: const _CatalogHugeIcon(HugeIcons.strokeRoundedAdd01, size: 18),
     );
+  }
+
+  Future<void> _runPreviewError(BuildContext context) async {
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Something went wrong')));
+    }
+    throw StateError('Preview action failed');
   }
 }
 
@@ -1506,8 +1527,9 @@ class _FilterChipPreviewState extends State<_FilterChipPreview> {
                 label: 'Videos',
                 selected: _selected.contains('Videos'),
                 onChanged: _toggle('Videos'),
-                trailing:
-                    const _CatalogHugeIcon(HugeIcons.strokeRoundedVideo01),
+                trailing: const _CatalogHugeIcon(
+                  HugeIcons.strokeRoundedVideo01,
+                ),
               ),
             ],
           ),
@@ -1732,10 +1754,7 @@ class _AvatarTableHeader extends StatelessWidget {
 }
 
 class _AvatarTableRow extends StatelessWidget {
-  const _AvatarTableRow({
-    required this.label,
-    required this.children,
-  });
+  const _AvatarTableRow({required this.label, required this.children});
 
   final String label;
   final List<Widget> children;
@@ -1753,11 +1772,7 @@ class _AvatarTableRow extends StatelessWidget {
           ),
         ),
         for (final child in children)
-          SizedBox(
-            width: 96,
-            height: 64,
-            child: Center(child: child),
-          ),
+          SizedBox(width: 96, height: 64, child: Center(child: child)),
       ],
     );
   }
@@ -1796,10 +1811,7 @@ class _EditableChip extends StatelessWidget {
 }
 
 class _FaceAvatar extends StatelessWidget {
-  const _FaceAvatar({
-    required this.seed,
-    required this.initials,
-  });
+  const _FaceAvatar({required this.seed, required this.initials});
 
   final int seed;
   final String initials;
@@ -1828,7 +1840,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
   late final TextEditingController _disabledController;
   late final TextEditingController _clearableController;
   late final TextEditingController _passwordController;
-  late final TextEditingController _readOnlyController;
+  late final TextEditingController _submitController;
+  late final ValueNotifier<int> _submitNotifier;
 
   @override
   void initState() {
@@ -1839,7 +1852,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
     _disabledController = TextEditingController(text: 'mira.roy@example.com');
     _clearableController = TextEditingController(text: 'family trip');
     _passwordController = TextEditingController(text: 'correct horse');
-    _readOnlyController = TextEditingController(text: 'Mira Roy');
+    _submitController = TextEditingController(text: 'wrong password');
+    _submitNotifier = ValueNotifier<int>(0);
   }
 
   @override
@@ -1850,7 +1864,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
     _disabledController.dispose();
     _clearableController.dispose();
     _passwordController.dispose();
-    _readOnlyController.dispose();
+    _submitController.dispose();
+    _submitNotifier.dispose();
     super.dispose();
   }
 
@@ -1860,17 +1875,18 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
       children: [
         const _CatalogPreviewGroup(
           title: 'Normal',
-          child:
-              TextInputComponent(label: 'Email address', hintText: 'Hint text'),
+          child: TextInputComponent(
+            label: 'Email address',
+            hintText: 'Hint text',
+          ),
         ),
         _CatalogPreviewGroup(
           title: 'Focused',
           child: TextInputComponent(
             controller: _focusedController,
             label: 'Email address',
-            isFocused: true,
-            prefix: const _CatalogHugeIcon(HugeIcons.strokeRoundedMail01),
-            suffix: const _CatalogHugeIcon(HugeIcons.strokeRoundedView),
+            prefix: const _TextInputPreviewIcon(HugeIcons.strokeRoundedMail01),
+            suffix: const _TextInputPreviewIcon(HugeIcons.strokeRoundedView),
           ),
         ),
         _CatalogPreviewGroup(
@@ -1878,10 +1894,43 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             controller: _errorController,
             label: 'Password',
-            errorText: 'Use at least 8 characters.',
-            obscureText: true,
-            prefix: const _CatalogHugeIcon(HugeIcons.strokeRoundedLockPassword),
-            suffix: const _CatalogHugeIcon(HugeIcons.strokeRoundedView),
+            message: 'Use at least 8 characters.',
+            messageType: TextInputComponentMessageType.error,
+            isPasswordInput: true,
+            prefix: const _TextInputPreviewIcon(
+              HugeIcons.strokeRoundedLockPassword,
+            ),
+          ),
+        ),
+        _CatalogPreviewGroup(
+          title: 'Submit error',
+          child: Column(
+            children: [
+              TextInputComponent(
+                controller: _submitController,
+                submitNotifier: _submitNotifier,
+                label: 'Password',
+                hintText: 'Enter password',
+                isPasswordInput: true,
+                popNavAfterSubmission: true,
+                prefix: const _TextInputPreviewIcon(
+                  HugeIcons.strokeRoundedLockPassword,
+                ),
+                onSubmit: (_) async {
+                  await Future<void>.delayed(const Duration(milliseconds: 300));
+                  throw Exception('Incorrect password');
+                },
+              ),
+              const SizedBox(height: Spacing.md),
+              ButtonComponent(
+                label: 'Submit',
+                size: ButtonComponentSize.small,
+                shouldSurfaceExecutionStates: false,
+                onTap: () {
+                  _submitNotifier.value++;
+                },
+              ),
+            ],
           ),
         ),
         _CatalogPreviewGroup(
@@ -1889,8 +1938,9 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             controller: _successController,
             label: 'Recovery code',
-            successText: 'Recovery code verified.',
-            suffix: const _CatalogHugeIcon(
+            message: 'Recovery code verified.',
+            messageType: TextInputComponentMessageType.success,
+            suffix: const _TextInputPreviewIcon(
               HugeIcons.strokeRoundedCheckmarkCircle01,
             ),
           ),
@@ -1900,8 +1950,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             controller: _disabledController,
             label: 'Account email',
-            enabled: false,
-            prefix: const _CatalogHugeIcon(HugeIcons.strokeRoundedMail01),
+            isDisabled: true,
+            prefix: const _TextInputPreviewIcon(HugeIcons.strokeRoundedMail01),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -1921,7 +1971,7 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Recovery email',
             hintText: 'mira@example.com',
-            helperText: 'Used for receipts and security alerts.',
+            message: 'Used for receipts and security alerts.',
           ),
         ),
         const _CatalogPreviewGroup(
@@ -1929,7 +1979,7 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Search',
             hintText: 'Search albums',
-            prefix: _CatalogHugeIcon(HugeIcons.strokeRoundedSearch01),
+            prefix: _TextInputPreviewIcon(HugeIcons.strokeRoundedSearch01),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -1937,7 +1987,7 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Password',
             hintText: 'Enter password',
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedView),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedView),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -1945,8 +1995,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Search',
             hintText: 'Search people',
-            prefix: _CatalogHugeIcon(HugeIcons.strokeRoundedSearch01),
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCancel01),
+            prefix: _TextInputPreviewIcon(HugeIcons.strokeRoundedSearch01),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCancel01),
           ),
         ),
         _CatalogPreviewGroup(
@@ -1955,11 +2005,11 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             controller: _clearableController,
             label: 'Search',
             hintText: 'Search files',
-            prefix: const _CatalogHugeIcon(HugeIcons.strokeRoundedSearch01),
+            prefix: const _TextInputPreviewIcon(
+              HugeIcons.strokeRoundedSearch01,
+            ),
             isClearable: true,
-            textInputAction: TextInputAction.search,
             autocorrect: false,
-            enableSuggestions: false,
           ),
         ),
         _CatalogPreviewGroup(
@@ -1968,9 +2018,10 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             controller: _passwordController,
             label: 'Password',
             hintText: 'Enter password',
-            obscureText: true,
-            showPasswordToggle: true,
-            prefix: const _CatalogHugeIcon(HugeIcons.strokeRoundedLockPassword),
+            isPasswordInput: true,
+            prefix: const _TextInputPreviewIcon(
+              HugeIcons.strokeRoundedLockPassword,
+            ),
             autofillHints: const [AutofillHints.password],
           ),
         ),
@@ -1979,16 +2030,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Recovery key',
             hintText: 'Enter recovery key',
-            alertText: 'Save this key somewhere safe before continuing.',
-          ),
-        ),
-        _CatalogPreviewGroup(
-          title: 'Read only',
-          child: TextInputComponent(
-            controller: _readOnlyController,
-            label: 'Owner',
-            readOnly: true,
-            suffix: const _CatalogHugeIcon(HugeIcons.strokeRoundedLock),
+            message: 'Save this key somewhere safe before continuing.',
+            messageType: TextInputComponentMessageType.alert,
           ),
         ),
         const _CatalogPreviewGroup(
@@ -1997,7 +2040,6 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Referral code',
             hintText: 'SUMMER2026',
             maxLength: 12,
-            counterText: '',
             textCapitalization: TextCapitalization.characters,
           ),
         ),
@@ -2006,9 +2048,10 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             label: 'Description',
             hintText: 'Hint text',
-            errorText: 'This is an error',
+            message: 'This is an error',
+            messageType: TextInputComponentMessageType.error,
             maxLines: 4,
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCopy01),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -2017,7 +2060,7 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Description',
             hintText: 'Hint text',
             maxLines: 4,
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCopy01),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -2033,15 +2076,12 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
           child: TextInputComponent(
             hintText: 'Hint text',
             maxLines: 4,
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCopy01),
           ),
         ),
         const _CatalogPreviewGroup(
           title: 'Multiline: no label',
-          child: TextInputComponent(
-            hintText: 'Hint text',
-            maxLines: 4,
-          ),
+          child: TextInputComponent(hintText: 'Hint text', maxLines: 4),
         ),
         const _CatalogPreviewGroup(
           title: 'Multiline: focused',
@@ -2049,8 +2089,7 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Description',
             hintText: 'Hint text',
             maxLines: 4,
-            isFocused: true,
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCopy01),
           ),
         ),
         const _CatalogPreviewGroup(
@@ -2059,7 +2098,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Description',
             hintText: 'Hint text',
             maxLines: 4,
-            errorText: 'This is an error',
+            message: 'This is an error',
+            messageType: TextInputComponentMessageType.error,
           ),
         ),
         const _CatalogPreviewGroup(
@@ -2068,7 +2108,8 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Description',
             hintText: 'Hint text',
             maxLines: 4,
-            successText: 'Saved',
+            message: 'Saved',
+            messageType: TextInputComponentMessageType.success,
           ),
         ),
         const _CatalogPreviewGroup(
@@ -2077,12 +2118,23 @@ class _TextInputPreviewState extends State<_TextInputPreview> {
             label: 'Description',
             hintText: 'Hint text',
             maxLines: 4,
-            enabled: false,
-            suffix: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+            isDisabled: true,
+            suffix: _TextInputPreviewIcon(HugeIcons.strokeRoundedCopy01),
           ),
         ),
       ],
     );
+  }
+}
+
+class _TextInputPreviewIcon extends StatelessWidget {
+  const _TextInputPreviewIcon(this.icon);
+
+  final HugeIconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CatalogHugeIcon(icon, color: context.componentColors.textLighter);
   }
 }
 
@@ -2203,11 +2255,13 @@ class _TitleBarSample extends StatelessWidget {
       TitleBarComponentVariant.partiallyPreserved ||
       TitleBarComponentVariant.preserved ||
       TitleBarComponentVariant.syncing ||
-      TitleBarComponentVariant.videoProcessing =>
-        const _CatalogHugeIcon(HugeIcons.strokeRoundedMoreHorizontal),
+      TitleBarComponentVariant.videoProcessing => const _CatalogHugeIcon(
+        HugeIcons.strokeRoundedMoreHorizontal,
+      ),
       TitleBarComponentVariant.settings ||
-      TitleBarComponentVariant.titleTopbar =>
-        const _CatalogHugeIcon(HugeIcons.strokeRoundedSearch01),
+      TitleBarComponentVariant.titleTopbar => const _CatalogHugeIcon(
+        HugeIcons.strokeRoundedSearch01,
+      ),
       _ => null,
     };
   }
@@ -2216,14 +2270,15 @@ class _TitleBarSample extends StatelessWidget {
     return switch (variant) {
       TitleBarComponentVariant.preserving ||
       TitleBarComponentVariant.partiallyPreserved ||
-      TitleBarComponentVariant.preserved =>
-        const _CatalogHugeIcon(HugeIcons.strokeRoundedCheckmarkCircle01),
+      TitleBarComponentVariant.preserved => const _CatalogHugeIcon(
+        HugeIcons.strokeRoundedCheckmarkCircle01,
+      ),
       TitleBarComponentVariant.syncing => const _CatalogHugeIcon(
-          HugeIcons.strokeRoundedRefresh,
-        ),
+        HugeIcons.strokeRoundedRefresh,
+      ),
       TitleBarComponentVariant.videoProcessing => const _CatalogHugeIcon(
-          HugeIcons.strokeRoundedVideo01,
-        ),
+        HugeIcons.strokeRoundedVideo01,
+      ),
       _ => null,
     };
   }
@@ -2238,10 +2293,7 @@ class _HeaderPreview extends StatelessWidget {
       children: [
         _CatalogPreviewGroup(
           title: 'Title + subtitle + two actions',
-          child: _HeaderSample(
-            subtitle: true,
-            actionCount: 2,
-          ),
+          child: _HeaderSample(subtitle: true, actionCount: 2),
         ),
         _CatalogPreviewGroup(
           title: 'Title + two actions',
@@ -2255,45 +2307,26 @@ class _HeaderPreview extends StatelessWidget {
           title: 'Title + subtitle',
           child: _HeaderSample(subtitle: true),
         ),
-        _CatalogPreviewGroup(
-          title: 'Title only',
-          child: _HeaderSample(),
-        ),
+        _CatalogPreviewGroup(title: 'Title only', child: _HeaderSample()),
         _CatalogPreviewGroup(
           title: 'Title + subtitle + one action',
-          child: _HeaderSample(
-            subtitle: true,
-            actionCount: 1,
-          ),
+          child: _HeaderSample(subtitle: true, actionCount: 1),
         ),
         _CatalogPreviewGroup(
           title: 'Image + subtitle + two actions',
-          child: _HeaderSample(
-            image: true,
-            subtitle: true,
-            actionCount: 2,
-          ),
+          child: _HeaderSample(image: true, subtitle: true, actionCount: 2),
         ),
         _CatalogPreviewGroup(
           title: 'Image + two actions',
-          child: _HeaderSample(
-            image: true,
-            actionCount: 2,
-          ),
+          child: _HeaderSample(image: true, actionCount: 2),
         ),
         _CatalogPreviewGroup(
           title: 'Image + one action',
-          child: _HeaderSample(
-            image: true,
-            actionCount: 1,
-          ),
+          child: _HeaderSample(image: true, actionCount: 1),
         ),
         _CatalogPreviewGroup(
           title: 'Image + subtitle',
-          child: _HeaderSample(
-            image: true,
-            subtitle: true,
-          ),
+          child: _HeaderSample(image: true, subtitle: true),
         ),
         _CatalogPreviewGroup(
           title: 'Image only',
@@ -2301,11 +2334,7 @@ class _HeaderPreview extends StatelessWidget {
         ),
         _CatalogPreviewGroup(
           title: 'Image + subtitle + one action',
-          child: _HeaderSample(
-            image: true,
-            subtitle: true,
-            actionCount: 1,
-          ),
+          child: _HeaderSample(image: true, subtitle: true, actionCount: 1),
         ),
       ],
     );
@@ -2335,7 +2364,7 @@ class _HeaderSample extends StatelessWidget {
             tooltip: index == 0 ? 'Add' : 'Create',
             variant: IconButtonComponentVariant.primary,
             icon: const _CatalogHugeIcon(HugeIcons.strokeRoundedAdd01),
-            onPressed: () {},
+            onTap: () {},
           ),
       ],
     );
@@ -2428,8 +2457,10 @@ class _SelectionPreviewState extends State<_SelectionPreview> {
                 label: 'Selected radio',
               ),
               LabeledControlComponent(
-                control:
-                    ToggleSwitchComponent(selected: false, onChanged: null),
+                control: ToggleSwitchComponent(
+                  selected: false,
+                  onChanged: null,
+                ),
                 label: 'Off switch',
               ),
             ],
@@ -2469,11 +2500,7 @@ class _SelectionPreviewState extends State<_SelectionPreview> {
   }
 }
 
-enum _MenuItemTrailingKind {
-  icon,
-  toggle,
-  none,
-}
+enum _MenuItemTrailingKind { icon, toggle, none }
 
 class _MenuItemPreview extends StatefulWidget {
   const _MenuItemPreview();
@@ -2505,16 +2532,8 @@ class _MenuItemPreviewState extends State<_MenuItemPreview> {
           ),
         ),
         const _CatalogPreviewGroup(
-          title: 'Loading',
-          child: _MenuItemLoadingPreview(),
-        ),
-        const _CatalogPreviewGroup(
-          title: 'Success',
-          child: _MenuItemSuccessPreview(),
-        ),
-        const _CatalogPreviewGroup(
-          title: 'Loading only',
-          child: _MenuItemLoadingOnlyPreview(),
+          title: 'Interaction states',
+          child: _MenuItemInteractionStatesPreview(),
         ),
         _CatalogPreviewGroup(
           title: 'Display only',
@@ -2524,27 +2543,16 @@ class _MenuItemPreviewState extends State<_MenuItemPreview> {
               return MenuComponent(
                 title: 'Storage plan',
                 subtitle: 'Gestures disabled for read-only rows',
-                leading:
-                    const _CatalogHugeIcon(HugeIcons.strokeRoundedDatabase),
+                leading: const _CatalogHugeIcon(
+                  HugeIcons.strokeRoundedDatabase,
+                ),
                 trailing: Text(
                   '2 TB',
                   style: TextStyles.body.copyWith(color: colors.textLight),
                 ),
-                gesturesEnabled: false,
+                isDisabled: true,
               );
             },
-          ),
-        ),
-        const _CatalogPreviewGroup(
-          title: 'Async state',
-          child: MenuComponent(
-            title: 'Check for updates',
-            subtitle: 'Shows loading and success states',
-            leading: _CatalogHugeIcon(HugeIcons.strokeRoundedRefresh),
-            trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
-            surfaceExecutionStates: true,
-            alwaysShowSuccessState: true,
-            onTap: _completeAfterDelay,
           ),
         ),
         _CatalogPreviewGroup(
@@ -2555,8 +2563,9 @@ class _MenuItemPreviewState extends State<_MenuItemPreview> {
               return MenuComponent(
                 title: 'Delete account',
                 subtitle: 'Warning color title and icon',
-                leading:
-                    const _CatalogHugeIcon(HugeIcons.strokeRoundedDelete02),
+                leading: const _CatalogHugeIcon(
+                  HugeIcons.strokeRoundedDelete02,
+                ),
                 trailing: const _CatalogTrailingIcon(
                   HugeIcons.strokeRoundedArrowRight01,
                 ),
@@ -2592,50 +2601,84 @@ Future<void> _completeAfterDelay() {
   return Future<void>.delayed(const Duration(milliseconds: 650));
 }
 
-class _MenuItemLoadingPreview extends StatelessWidget {
-  const _MenuItemLoadingPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return const MenuComponent(
-      title: 'Updating backup',
-      subtitle: 'Tap to see the trailing loading state',
-      leading: _CatalogHugeIcon(HugeIcons.strokeRoundedCloudUpload),
-      trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
-      surfaceExecutionStates: true,
-      onTap: _completeAfterDelay,
-    );
-  }
+Future<void> _completeSlowly() {
+  return Future<void>.delayed(const Duration(milliseconds: 900));
 }
 
-class _MenuItemLoadingOnlyPreview extends StatelessWidget {
-  const _MenuItemLoadingOnlyPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return const MenuComponent(
-      title: 'Opening sessions',
-      subtitle: 'Loading-only execution state',
-      leading: _CatalogHugeIcon(HugeIcons.strokeRoundedUserGroup),
-      trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
-      showOnlyLoadingState: true,
-      onTap: _completeAfterDelay,
-    );
-  }
+Future<void> _completeQuickly() {
+  return Future<void>.delayed(const Duration(milliseconds: 120));
 }
 
-class _MenuItemSuccessPreview extends StatelessWidget {
-  const _MenuItemSuccessPreview();
+Future<void> _failAfterDelay(BuildContext context) async {
+  await Future<void>.delayed(const Duration(milliseconds: 900));
+  if (context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Something went wrong')));
+  }
+  throw StateError('Preview action failed');
+}
+
+class _MenuItemInteractionStatesPreview extends StatelessWidget {
+  const _MenuItemInteractionStatesPreview();
 
   @override
   Widget build(BuildContext context) {
-    return const MenuComponent(
-      title: 'Copied recovery key',
-      subtitle: 'Tap to see completion replace trailing slot',
-      leading: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
-      trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
-      alwaysShowSuccessState: true,
-      onTap: _completeAfterDelay,
+    return Column(
+      children: [
+        MenuComponent(
+          title: 'Open storage plan',
+          subtitle: 'Tap only, no execution UI',
+          leading: const _CatalogHugeIcon(HugeIcons.strokeRoundedDatabase),
+          trailing: const _CatalogTrailingIcon(
+            HugeIcons.strokeRoundedArrowRight01,
+          ),
+          shouldSurfaceExecutionStates: false,
+          onTap: () {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Opened')));
+          },
+        ),
+        const SizedBox(height: Spacing.md),
+        const MenuComponent(
+          title: 'Updating backup',
+          subtitle: 'Execution loading, then success',
+          leading: _CatalogHugeIcon(HugeIcons.strokeRoundedCloudUpload),
+          trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
+          onTap: _completeSlowly,
+        ),
+        const SizedBox(height: Spacing.md),
+        const MenuComponent(
+          title: 'Copied recovery key',
+          subtitle: 'Fast success confirmation',
+          leading: _CatalogHugeIcon(HugeIcons.strokeRoundedCopy01),
+          trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
+          shouldShowSuccessConfirmation: true,
+          onTap: _completeQuickly,
+        ),
+        const SizedBox(height: Spacing.md),
+        MenuComponent(
+          title: 'Sync backup',
+          subtitle: 'Error resets to idle',
+          leading: const _CatalogHugeIcon(HugeIcons.strokeRoundedRefresh),
+          trailing: const _CatalogTrailingIcon(
+            HugeIcons.strokeRoundedArrowRight01,
+          ),
+          titleColor: context.componentColors.warning,
+          iconColor: context.componentColors.warning,
+          onTap: () => _failAfterDelay(context),
+        ),
+        const SizedBox(height: Spacing.md),
+        const MenuComponent(
+          title: 'Opening sessions',
+          subtitle: 'Loading only, no success tick',
+          leading: _CatalogHugeIcon(HugeIcons.strokeRoundedUserGroup),
+          trailing: _CatalogTrailingIcon(HugeIcons.strokeRoundedArrowRight01),
+          showOnlyLoadingState: true,
+          onTap: _completeSlowly,
+        ),
+      ],
     );
   }
 }
@@ -2718,12 +2761,12 @@ class _MenuItemExample extends StatelessWidget {
     }
     return switch (trailingKind) {
       _MenuItemTrailingKind.icon => const _CatalogTrailingIcon(
-          HugeIcons.strokeRoundedMoreVertical,
-        ),
+        HugeIcons.strokeRoundedMoreVertical,
+      ),
       _MenuItemTrailingKind.toggle => ToggleSwitchComponent(
-          selected: toggleSelected,
-          onChanged: onToggleChanged,
-        ),
+        selected: toggleSelected,
+        onChanged: onToggleChanged,
+      ),
       _MenuItemTrailingKind.none => null,
     };
   }
